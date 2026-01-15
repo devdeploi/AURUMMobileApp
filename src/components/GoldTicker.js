@@ -83,9 +83,7 @@ const GoldTicker = () => {
                         </View>
                     </View>
 
-                    <View style={[styles.trendIndicator, !goldRate.loading && styles.trendActive]}>
-                        <Icon name="arrow-up" size={10} color={COLORS.success} />
-                    </View>
+                    
                 </View>
             </View>
         </View>

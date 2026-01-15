@@ -8,8 +8,7 @@ import GoldTicker from '../components/GoldTicker';
 const MerchantOverview = ({ user, stats }) => {
     return (
         <ScrollView contentContainerStyle={styles.contentContainer}>
-            {/* Gold Ticker */}
-            <GoldTicker />
+
 
             <Text style={[styles.welcomeText, { marginTop: 20 }]}>Welcome, {user.name}</Text>
             <Text style={styles.subText}>Manage your business and chit plans efficiently.</Text>

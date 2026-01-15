@@ -27,475 +27,474 @@ const MerchantProfile = ({
     const [showPremiumModal, setShowPremiumModal] = useState(false);
 
     return (
-        <ScrollView
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-        >
-            {/* Profile Header Card */}
-            <View style={styles.profileHeaderCard}>
-                <View style={styles.profileAvatarContainer}>
-                    <View style={styles.avatarWrapper}>
-                        <Icon name="user-circle" size={80} color={COLORS.primary} />
-                        <View style={styles.verificationBadge}>
-                            <Icon name="check-circle" size={16} color="#fff" />
-                        </View>
-                    </View>
-                </View>
-
-                <Text style={styles.profileName}>{profileData.name || user.name}</Text>
-
-                <View style={styles.businessTag}>
-                    <Icon name="store" size={12} color={COLORS.primary} style={styles.storeIcon} />
-                    <Text style={styles.businessTagText}>Business Account</Text>
-                </View>
-
-                <View style={styles.planBadge}>
-                    <Icon name="crown" size={14} color={COLORS.warning} />
-                    <Text style={styles.planText}>{profileData.plan || 'Standard'} Plan</Text>
-                </View>
-
-                <TouchableOpacity
-                    style={styles.editProfileButton}
-                    onPress={() => setIsEditingProfile(!isEditingProfile)}
-                >
-                    <Icon name="edit" size={14} color={COLORS.primary} />
-                    <Text style={styles.editProfileButtonText}>
-                        {isEditingProfile ? 'Cancel Editing' : 'Edit Profile'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Business Details Card */}
-            <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <View style={styles.cardHeaderLeft}>
-                        <Icon name="building" size={18} color={COLORS.primary} />
-                        <Text style={styles.cardTitle}>Business Information</Text>
-                    </View>
-                    <View style={styles.cardStatus}>
-                        <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
-                        <Text style={styles.statusText}>Active</Text>
-                    </View>
-                </View>
-
-                {isEditingProfile ? (
-                    <View style={styles.editForm}>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Business Name</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={profileData.name}
-                                onChangeText={(text) => setProfileData({ ...profileData, name: text })}
-                                placeholder="Enter business name"
-                            />
-                        </View>
-
-                        <View style={styles.inputRow}>
-                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                                <Text style={styles.inputLabel}>Phone</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={profileData.phone}
-                                    onChangeText={(text) => setProfileData({ ...profileData, phone: text })}
-                                    keyboardType="phone-pad"
-                                    placeholder="Phone number"
-                                />
+        <View style={{ flex: 1 }}>
+            <ScrollView
+                contentContainerStyle={[styles.contentContainer, isEditingProfile && { paddingBottom: 100 }]}
+                showsVerticalScrollIndicator={false}
+            >
+                {profileData.plan !== 'Premium' && (
+                    <TouchableOpacity
+                        style={styles.upgradeCard}
+                        activeOpacity={0.9}
+                        onPress={() => setShowPremiumModal(true)}
+                    >
+                        <View style={styles.upgradeContent}>
+                            <View style={styles.upgradeBadge}>
+                                <Icon name="crown" size={24} color={COLORS.warning} />
                             </View>
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>GSTIN</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={profileData.gstin}
-                                    onChangeText={(text) => setProfileData({ ...profileData, gstin: text })}
-                                    placeholder="GSTIN Number"
-                                />
+                            <View style={styles.upgradeInfo}>
+                                <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
+                                <Text style={styles.upgradeDescription}>
+                                    Tap to view plan details and benefits
+                                </Text>
                             </View>
+                            <Icon name="chevron-right" size={16} color={COLORS.warning} />
                         </View>
+                    </TouchableOpacity>
+                )}
+                {/* Profile Header Card */}
+                {/* Minimal Profile Header */}
+                <View style={styles.profileHeaderMinimal}>
+                    <View style={styles.profileRow}>
+                        <Icon name="user-circle" size={50} color={COLORS.primary} style={styles.avatarMinimal} />
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Business Address</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea]}
-                                multiline
-                                numberOfLines={3}
-                                value={profileData.address}
-                                onChangeText={(text) => setProfileData({ ...profileData, address: text })}
-                                placeholder="Enter complete business address"
-                            />
+                        <View style={styles.profileInfoMinimal}>
+                            <Text style={styles.profileNameMinimal}>{profileData.name || user.name}</Text>
+                            <View style={styles.planBadgeMinimal}>
+                                <Icon name="crown" size={10} color="#F59E0B" />
+                                <Text style={styles.planTextMinimal}>{profileData.plan || 'Standard'}</Text>
+                            </View>
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.saveButton, updatingProfile && styles.saveButtonDisabled]}
-                            onPress={handleUpdateProfile}
-                            disabled={updatingProfile}
+                            style={styles.editBtnMinimal}
+                            onPress={() => setIsEditingProfile(!isEditingProfile)}
                         >
-                            {updatingProfile ? (
-                                <ActivityIndicator color="#fff" size="small" />
-                            ) : (
-                                <>
-                                    <Icon name="check-circle" size={16} color="#fff" />
-                                    <Text style={styles.saveButtonText}>Save Changes</Text>
-                                </>
-                            )}
+                            <Text style={styles.editBtnTextMinimal}>{isEditingProfile ? 'Done' : 'Edit'}</Text>
                         </TouchableOpacity>
                     </View>
-                ) : (
-                    <View style={styles.detailsGrid}>
-                        <View style={styles.detailItem}>
-                            <Icon name="envelope" size={14} color={COLORS.secondary} style={styles.detailIcon} />
-                            <View>
-                                <Text style={styles.detailLabel}>Email</Text>
-                                <Text style={styles.detailValue}>{profileData.email}</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <Icon name="phone" size={14} color={COLORS.secondary} style={styles.detailIcon} />
-                            <View>
-                                <Text style={styles.detailLabel}>Phone</Text>
-                                <Text style={styles.detailValue}>{profileData.phone || 'Not provided'}</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <Icon name="map-marker-alt" size={14} color={COLORS.secondary} style={styles.detailIcon} />
-                            <View>
-                                <Text style={styles.detailLabel}>Address</Text>
-                                <Text style={styles.detailValue}>{profileData.address || 'Not provided'}</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <Icon name="file-invoice-dollar" size={14} color={COLORS.secondary} style={styles.detailIcon} />
-                            <View>
-                                <Text style={styles.detailLabel}>GSTIN</Text>
-                                <Text style={styles.detailValue}>{profileData.gstin || 'Not registered'}</Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
-            </View>
-
-            {/* Bank Details Card */}
-            <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <View style={styles.cardHeaderLeft}>
-                        <Icon name="university" size={18} color={COLORS.primary} />
-                        <Text style={styles.cardTitle}>Bank Details</Text>
-                    </View>
-
-                    {profileData.bankDetails?.verificationStatus === 'verified' ? (
-                        <View style={styles.verifiedTag}>
-                            <Icon name="check-circle" size={12} color="#fff" />
-                            <Text style={styles.verifiedTagText}>Verified</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.unverifiedTag}>
-                            <Icon name="exclamation-circle" size={12} color="#fff" />
-                            <Text style={styles.unverifiedTagText}>Pending</Text>
-                        </View>
-                    )}
                 </View>
 
-                {profileData.bankDetails?.verificationStatus === 'verified' && (
-                    <View style={styles.verifiedInfo}>
-                        <Text style={styles.verifiedInfoText}>
-                            Verified as: <Text style={styles.verifiedName}>{profileData.bankDetails.verifiedName}</Text>
-                        </Text>
-                    </View>
-                )}
-
-                <View style={styles.bankForm}>
-                    <View style={styles.inputRow}>
-                        <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                            <Text style={styles.inputLabel}>Account Holder</Text>
-                            <TextInput
-                                style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
-                                value={profileData.bankDetails?.accountHolderName}
-                                editable={isEditingProfile}
-                                onChangeText={(text) => setProfileData({
-                                    ...profileData,
-                                    bankDetails: { ...profileData.bankDetails, accountHolderName: text }
-                                })}
-                                placeholder="Account holder name"
-                            />
+                {/* Business Details Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={styles.cardHeaderLeft}>
+                            <Icon name="building" size={18} color={COLORS.primary} />
+                            <Text style={styles.cardTitle}>Business Information</Text>
                         </View>
-
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
-                            <Text style={styles.inputLabel}>Account Number</Text>
-                            <TextInput
-                                style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
-                                value={profileData.bankDetails?.accountNumber}
-                                editable={isEditingProfile}
-                                onChangeText={(text) => setProfileData({
-                                    ...profileData,
-                                    bankDetails: { ...profileData.bankDetails, accountNumber: text }
-                                })}
-                                keyboardType="numeric"
-                                placeholder="Account number"
-                            />
+                        <View style={styles.cardStatus}>
+                            <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
+                            <Text style={styles.statusText}>Active</Text>
                         </View>
                     </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>IFSC Code</Text>
-                        <TextInput
-                            style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
-                            value={profileData.bankDetails?.ifscCode}
-                            editable={isEditingProfile}
-                            onChangeText={(text) => setProfileData({
-                                ...profileData,
-                                bankDetails: { ...profileData.bankDetails, ifscCode: text }
-                            })}
-                            autoCapitalize="characters"
-                            placeholder="IFSC code"
-                        />
-                    </View>
-
-                    {isEditingProfile && (
-                        <TouchableOpacity
-                            style={[styles.verifyButton, verifyingBank && styles.verifyButtonDisabled]}
-                            onPress={verifyBankAccount}
-                            disabled={verifyingBank}
-                        >
-                            {verifyingBank ? (
-                                <ActivityIndicator color="#fff" size="small" />
-                            ) : (
-                                <>
-                                    <Icon name="shield-alt" size={14} color="#fff" />
-                                    <Text style={styles.verifyButtonText}>Verify Account</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-
-            {/* Documents Card */}
-            <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <View style={styles.cardHeaderLeft}>
-                        <Icon name="file-alt" size={18} color={COLORS.primary} />
-                        <Text style={styles.cardTitle}>Documents</Text>
-                    </View>
-                </View>
-
-                <View style={styles.documentsSection}>
-                    {/* Address Proof */}
-                    <View style={styles.documentItem}>
-                        <View style={styles.documentHeader}>
-                            <Icon name="home" size={16} color={COLORS.secondary} />
-                            <Text style={styles.documentTitle}>Address Proof</Text>
-                        </View>
-
-                        {profileData.addressProof ? (
-                            <View style={styles.documentPreview}>
-                                <Image
-                                    source={{ uri: `${APIURL.replace('/api', '')}${profileData.addressProof}` }}
-                                    style={styles.documentImage}
+                    {isEditingProfile ? (
+                        <View style={styles.editForm}>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Business Name</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={profileData.name}
+                                    onChangeText={(text) => setProfileData({ ...profileData, name: text })}
+                                    placeholder="Enter business name"
                                 />
-                                <View style={styles.documentInfo}>
-                                    <Text style={styles.documentName}>Address Proof</Text>
-                                    <Text style={styles.documentStatus}>Uploaded</Text>
+                            </View>
+
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                    <Text style={styles.inputLabel}>Phone</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={profileData.phone}
+                                        onChangeText={(text) => setProfileData({ ...profileData, phone: text })}
+                                        keyboardType="phone-pad"
+                                        placeholder="Phone number"
+                                    />
                                 </View>
-                                {isEditingProfile && (
-                                    <TouchableOpacity
-                                        style={styles.documentAction}
-                                        onPress={() => handleImageUpload('addressProof')}
-                                    >
-                                        <Icon name="sync-alt" size={16} color={COLORS.primary} />
-                                    </TouchableOpacity>
-                                )}
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>GSTIN</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={profileData.gstin}
+                                        onChangeText={(text) => setProfileData({ ...profileData, gstin: text })}
+                                        placeholder="GSTIN Number"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Business Address</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    multiline
+                                    numberOfLines={3}
+                                    value={profileData.address}
+                                    onChangeText={(text) => setProfileData({ ...profileData, address: text })}
+                                    placeholder="Enter complete business address"
+                                />
+                            </View>
+
+                        </View>
+
+
+                    ) : (
+                        <View style={styles.detailsGrid}>
+                            <View style={styles.detailItem}>
+                                <Icon name="envelope" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>Email</Text>
+                                    <Text style={styles.detailValue}>{profileData.email}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.detailItem}>
+                                <Icon name="phone" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>Phone</Text>
+                                    <Text style={styles.detailValue}>{profileData.phone || 'Not provided'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.detailItem}>
+                                <Icon name="map-marker-alt" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>Address</Text>
+                                    <Text style={styles.detailValue}>{profileData.address || 'Not provided'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.detailItem}>
+                                <Icon name="file-invoice-dollar" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>GSTIN</Text>
+                                    <Text style={styles.detailValue}>{profileData.gstin || 'Not registered'}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+                </View>
+
+                {/* Bank Details Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={styles.cardHeaderLeft}>
+                            <Icon name="university" size={18} color={COLORS.primary} />
+                            <Text style={styles.cardTitle}>Bank Details</Text>
+                        </View>
+
+                        {profileData.bankDetails?.verificationStatus === 'verified' ? (
+                            <View style={styles.verifiedTag}>
+                                <Icon name="check-circle" size={12} color="#fff" />
+                                <Text style={styles.verifiedTagText}>Verified</Text>
                             </View>
                         ) : (
-                            isEditingProfile ? (
-                                <TouchableOpacity
-                                    style={styles.uploadDocumentButton}
-                                    onPress={() => handleImageUpload('addressProof')}
-                                    disabled={uploadingDoc}
-                                >
-                                    <Icon name="cloud-upload-alt" size={20} color={COLORS.primary} />
-                                    <Text style={styles.uploadDocumentText}>Upload Address Proof</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <View style={styles.emptyDocument}>
-                                    <Icon name="exclamation-circle" size={20} color="#ccc" />
-                                    <Text style={styles.emptyDocumentText}>No document uploaded</Text>
-                                </View>
-                            )
+                            <View style={styles.unverifiedTag}>
+                                <Icon name="exclamation-circle" size={12} color="#fff" />
+                                <Text style={styles.unverifiedTagText}>Pending</Text>
+                            </View>
                         )}
                     </View>
 
-                    {/* Shop Images */}
-                    <View style={styles.documentItem}>
-                        <View style={styles.documentHeader}>
-                            <Icon name="images" size={16} color={COLORS.secondary} />
-                            <Text style={styles.documentTitle}>Shop Images</Text>
-                            <Text style={styles.documentCount}>({profileData.shopImages?.length || 0})</Text>
+                    {profileData.bankDetails?.verificationStatus === 'verified' && (
+                        <View style={styles.verifiedInfo}>
+                            <Text style={styles.verifiedInfoText}>
+                                Verified as: <Text style={styles.verifiedName}>{profileData.bankDetails.verifiedName}</Text>
+                            </Text>
+                        </View>
+                    )}
+
+                    <View style={styles.bankForm}>
+                        <View style={styles.inputRow}>
+                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                <Text style={styles.inputLabel}>Account Holder</Text>
+                                <TextInput
+                                    style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
+                                    value={profileData.bankDetails?.accountHolderName}
+                                    editable={isEditingProfile}
+                                    onChangeText={(text) => setProfileData({
+                                        ...profileData,
+                                        bankDetails: { ...profileData.bankDetails, accountHolderName: text }
+                                    })}
+                                    placeholder="Account holder name"
+                                />
+                            </View>
+
+                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                <Text style={styles.inputLabel}>Account Number</Text>
+                                <TextInput
+                                    style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
+                                    value={profileData.bankDetails?.accountNumber}
+                                    editable={isEditingProfile}
+                                    onChangeText={(text) => setProfileData({
+                                        ...profileData,
+                                        bankDetails: { ...profileData.bankDetails, accountNumber: text }
+                                    })}
+                                    keyboardType="numeric"
+                                    placeholder="Account number"
+                                />
+                            </View>
                         </View>
 
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.shopImagesScroll}
-                        >
-                            {profileData.shopImages && profileData.shopImages.length > 0 ? (
-                                <>
-                                    {profileData.shopImages.map((img, idx) => (
-                                        <View key={idx} style={styles.shopImageContainer}>
-                                            <Image
-                                                source={{ uri: `${APIURL.replace('/api', '')}${img}` }}
-                                                style={styles.shopImage}
-                                            />
-                                            {isEditingProfile && (
-                                                <TouchableOpacity
-                                                    style={styles.removeImageButton}
-                                                    onPress={() => removeShopImage(idx)}
-                                                >
-                                                    <Icon name="times" size={12} color="#fff" />
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    ))}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>IFSC Code</Text>
+                            <TextInput
+                                style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
+                                value={profileData.bankDetails?.ifscCode}
+                                editable={isEditingProfile}
+                                onChangeText={(text) => setProfileData({
+                                    ...profileData,
+                                    bankDetails: { ...profileData.bankDetails, ifscCode: text }
+                                })}
+                                autoCapitalize="characters"
+                                placeholder="IFSC code"
+                            />
+                        </View>
 
+                        {isEditingProfile && (
+                            <TouchableOpacity
+                                style={[styles.verifyButton, verifyingBank && styles.verifyButtonDisabled]}
+                                onPress={verifyBankAccount}
+                                disabled={verifyingBank}
+                            >
+                                {verifyingBank ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <>
+                                        <Icon name="shield-alt" size={14} color="#fff" />
+                                        <Text style={styles.verifyButtonText}>Verify Account</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
+                {/* Documents Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={styles.cardHeaderLeft}>
+                            <Icon name="file-alt" size={18} color={COLORS.primary} />
+                            <Text style={styles.cardTitle}>Documents</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.documentsSection}>
+                        {/* Address Proof */}
+                        <View style={styles.documentItem}>
+                            <View style={styles.documentHeader}>
+                                <Icon name="home" size={16} color={COLORS.secondary} />
+                                <Text style={styles.documentTitle}>Address Proof</Text>
+                            </View>
+
+                            {profileData.addressProof ? (
+                                <View style={styles.documentPreview}>
+                                    <Image
+                                        source={{ uri: `${APIURL.replace('/api', '')}${profileData.addressProof}` }}
+                                        style={styles.documentImage}
+                                    />
+                                    <View style={styles.documentInfo}>
+                                        <Text style={styles.documentName}>Address Proof</Text>
+                                        <Text style={styles.documentStatus}>Uploaded</Text>
+                                    </View>
                                     {isEditingProfile && (
                                         <TouchableOpacity
-                                            style={styles.addImageButton}
-                                            onPress={() => handleImageUpload('shopImage')}
-                                            disabled={uploadingDoc}
+                                            style={styles.documentAction}
+                                            onPress={() => handleImageUpload('addressProof')}
                                         >
-                                            <Icon name="plus" size={24} color={COLORS.primary} />
-                                            <Text style={styles.addImageText}>Add More</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </>
-                            ) : (
-                                <View style={styles.noImagesContainer}>
-                                    <Icon name="image" size={30} color="#ccc" />
-                                    <Text style={styles.noImagesText}>No shop images</Text>
-                                    {isEditingProfile && (
-                                        <TouchableOpacity
-                                            style={styles.addFirstImageButton}
-                                            onPress={() => handleImageUpload('shopImage')}
-                                            disabled={uploadingDoc}
-                                        >
-                                            <Text style={styles.addFirstImageText}>Add First Image</Text>
+                                            <Icon name="sync-alt" size={16} color={COLORS.primary} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
+                            ) : (
+                                isEditingProfile ? (
+                                    <TouchableOpacity
+                                        style={styles.uploadDocumentButton}
+                                        onPress={() => handleImageUpload('addressProof')}
+                                        disabled={uploadingDoc}
+                                    >
+                                        <Icon name="cloud-upload-alt" size={20} color={COLORS.primary} />
+                                        <Text style={styles.uploadDocumentText}>Upload Address Proof</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={styles.emptyDocument}>
+                                        <Icon name="exclamation-circle" size={20} color="#ccc" />
+                                        <Text style={styles.emptyDocumentText}>No document uploaded</Text>
+                                    </View>
+                                )
                             )}
-                        </ScrollView>
+                        </View>
+
+                        {/* Shop Images */}
+                        <View style={styles.documentItem}>
+                            <View style={styles.documentHeader}>
+                                <Icon name="images" size={16} color={COLORS.secondary} />
+                                <Text style={styles.documentTitle}>Shop Images</Text>
+                                <Text style={styles.documentCount}>({profileData.shopImages?.length || 0})</Text>
+                            </View>
+
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.shopImagesScroll}
+                            >
+                                {profileData.shopImages && profileData.shopImages.length > 0 ? (
+                                    <>
+                                        {profileData.shopImages.map((img, idx) => (
+                                            <View key={idx} style={styles.shopImageContainer}>
+                                                <Image
+                                                    source={{ uri: `${APIURL.replace('/api', '')}${img}` }}
+                                                    style={styles.shopImage}
+                                                />
+                                                {isEditingProfile && (
+                                                    <TouchableOpacity
+                                                        style={styles.removeImageButton}
+                                                        onPress={() => removeShopImage(idx)}
+                                                    >
+                                                        <Icon name="times" size={12} color="#fff" />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        ))}
+
+                                        {isEditingProfile && (
+                                            <TouchableOpacity
+                                                style={styles.addImageButton}
+                                                onPress={() => handleImageUpload('shopImage')}
+                                                disabled={uploadingDoc}
+                                            >
+                                                <Icon name="plus" size={24} color={COLORS.primary} />
+                                                <Text style={styles.addImageText}>Add More</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </>
+                                ) : (
+                                    <View style={styles.noImagesContainer}>
+                                        <Icon name="image" size={30} color="#ccc" />
+                                        <Text style={styles.noImagesText}>No shop images</Text>
+                                        {isEditingProfile && (
+                                            <TouchableOpacity
+                                                style={styles.addFirstImageButton}
+                                                onPress={() => handleImageUpload('shopImage')}
+                                                disabled={uploadingDoc}
+                                            >
+                                                <Text style={styles.addFirstImageText}>Add First Image</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </View>
                     </View>
                 </View>
-            </View>
 
-            {/* Upgrade Plan Card */}
-            {/* Upgrade Plan Card */}
-            {profileData.plan !== 'Premium' && (
-                <TouchableOpacity
-                    style={styles.upgradeCard}
-                    activeOpacity={0.9}
-                    onPress={() => setShowPremiumModal(true)}
+                {/* Upgrade Plan Card */}
+                {/* Upgrade Plan Card */}
+
+
+                {/* Premium Plan Modal */}
+                <Modal
+                    visible={showPremiumModal}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setShowPremiumModal(false)}
                 >
-                    <View style={styles.upgradeContent}>
-                        <View style={styles.upgradeBadge}>
-                            <Icon name="crown" size={24} color={COLORS.warning} />
-                        </View>
-                        <View style={styles.upgradeInfo}>
-                            <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
-                            <Text style={styles.upgradeDescription}>
-                                Tap to view plan details and benefits
-                            </Text>
-                        </View>
-                        <Icon name="chevron-right" size={16} color={COLORS.warning} />
-                    </View>
-                </TouchableOpacity>
-            )}
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <Icon name="crown" size={32} color={COLORS.warning} />
+                                <Text style={styles.modalTitle}>Premium Plan</Text>
+                                <TouchableOpacity
+                                    style={styles.closeButton}
+                                    onPress={() => setShowPremiumModal(false)}
+                                >
+                                    <Icon name="times" size={20} color="#666" />
+                                </TouchableOpacity>
+                            </View>
 
-            {/* Premium Plan Modal */}
-            <Modal
-                visible={showPremiumModal}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowPremiumModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Icon name="crown" size={32} color={COLORS.warning} />
-                            <Text style={styles.modalTitle}>Premium Plan</Text>
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={() => setShowPremiumModal(false)}
-                            >
-                                <Icon name="times" size={20} color="#666" />
-                            </TouchableOpacity>
-                        </View>
+                            <ScrollView style={styles.modalBody}>
+                                <Text style={styles.modalSubtitle}>Unlock exclusive features for your business</Text>
 
-                        <ScrollView style={styles.modalBody}>
-                            <Text style={styles.modalSubtitle}>Unlock exclusive features for your business</Text>
-
-                            {/* <View style={styles.featureItem}>
+                                {/* <View style={styles.featureItem}>
                                 <View style={styles.featureIconContainer}>
                                     <Icon name="check" size={12} color="#fff" />
                                 </View>
                                 <Text style={styles.featureText}>Verified Merchant Badge</Text>
                             </View> */}
 
-                            <View style={styles.featureItem}>
-                                <View style={styles.featureIconContainer}>
-                                    <Icon name="check" size={12} color="#fff" />
+                                <View style={styles.featureItem}>
+                                    <View style={styles.featureIconContainer}>
+                                        <Icon name="check" size={12} color="#fff" />
+                                    </View>
+                                    <Text style={styles.featureText}>Manage up to 6 chits</Text>
                                 </View>
-                                <Text style={styles.featureText}>Manage up to 6 chits</Text>
-                            </View>
 
-                            <View style={styles.featureItem}>
-                                <View style={styles.featureIconContainer}>
-                                    <Icon name="check" size={12} color="#fff" />
+                                <View style={styles.featureItem}>
+                                    <View style={styles.featureIconContainer}>
+                                        <Icon name="check" size={12} color="#fff" />
+                                    </View>
+                                    <Text style={styles.featureText}>Advanced Analytics</Text>
                                 </View>
-                                <Text style={styles.featureText}>Advanced Analytics</Text>
-                            </View>
 
-                            <View style={styles.featureItem}>
-                                <View style={styles.featureIconContainer}>
-                                    <Icon name="check" size={12} color="#fff" />
+                                <View style={styles.featureItem}>
+                                    <View style={styles.featureIconContainer}>
+                                        <Icon name="check" size={12} color="#fff" />
+                                    </View>
+                                    <Text style={styles.featureText}>Priority 24/7 Support</Text>
                                 </View>
-                                <Text style={styles.featureText}>Priority 24/7 Support</Text>
-                            </View>
 
-                            <View style={styles.priceContainer}>
-                                {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
-                                <Text style={styles.priceValue}>Rs 5000 <Text style={styles.pricePeriod}>/ Month</Text></Text>
-                            </View>
-                        </ScrollView>
+                                <View style={styles.priceContainer}>
+                                    {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
+                                    <Text style={styles.priceValue}>Rs 5000 <Text style={styles.pricePeriod}>/ Month</Text></Text>
+                                </View>
+                            </ScrollView>
 
-                        <View style={styles.modalFooter}>
-                            <TouchableOpacity
-                                style={styles.payButton}
-                                onPress={() => {
-                                    setShowPremiumModal(false);
-                                    handleUpgradePayment();
-                                }}
-                            >
-                                <Text style={styles.payButtonText}>Pay & Upgrade</Text>
-                                <Icon name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
-                            </TouchableOpacity>
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity
+                                    style={styles.payButton}
+                                    onPress={() => {
+                                        setShowPremiumModal(false);
+                                        handleUpgradePayment();
+                                    }}
+                                >
+                                    <Text style={styles.payButtonText}>Pay & Upgrade</Text>
+                                    <Icon name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
+                </Modal>
+
+                {/* Logout Button */}
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={() => setShowLogoutModal(true)}
+                >
+                    <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
+                    <Text style={styles.logoutText}>Sign Out</Text>
+                </TouchableOpacity>
+
+                <View style={styles.footerSpace} />
+            </ScrollView >
+
+            {isEditingProfile && (
+                <View style={styles.floatingButtonContainer}>
+                    <TouchableOpacity
+                        style={[styles.floatingSaveButton, updatingProfile && styles.saveButtonDisabled]}
+                        onPress={handleUpdateProfile}
+                        disabled={updatingProfile}
+                    >
+                        {updatingProfile ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                            <>
+                                <Icon name="check" size={18} color="#fff" />
+                                <Text style={styles.floatingSaveButtonText}>Save Changes</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
                 </View>
-            </Modal>
-
-            {/* Logout Button */}
-            <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={() => setShowLogoutModal(true)}
-            >
-                <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
-                <Text style={styles.logoutText}>Sign Out</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footerSpace} />
-        </ScrollView>
+            )}
+        </View >
     );
 };
 
@@ -504,7 +503,63 @@ const styles = StyleSheet.create({
         padding: 16,
         backgroundColor: '#f8fafc',
     },
-    // Profile Header Card
+    // Minimal Profile Header Styles
+    profileHeaderMinimal: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    profileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatarMinimal: {
+        marginRight: 15,
+    },
+    profileInfoMinimal: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    profileNameMinimal: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    planBadgeMinimal: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF8E1',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    planTextMinimal: {
+        fontSize: 12,
+        color: '#F59E0B',
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    editBtnMinimal: {
+        backgroundColor: '#f1f5f9',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    editBtnTextMinimal: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.primary,
+    },
+
+    // Legacy Styles (kept to prevent crashes if referenced elsewhere, though mostly replaced)
     profileHeaderCard: {
         backgroundColor: '#fff',
         borderRadius: 20,
@@ -516,78 +571,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 12,
         elevation: 5,
-    },
-    profileAvatarContainer: {
-        position: 'relative',
-        marginBottom: 16,
-    },
-    avatarWrapper: {
-        position: 'relative',
-    },
-    verificationBadge: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: COLORS.success,
-        borderRadius: 12,
-        padding: 4,
-        borderWidth: 2,
-        borderColor: '#fff',
-    },
-    profileName: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#1e293b',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    businessTag: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(145, 82, 0, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginBottom: 12,
-    },
-    storeIcon: {
-        marginRight: 6,
-    },
-    businessTagText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: COLORS.primary,
-    },
-    planBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginBottom: 16,
-    },
-    planText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.warning,
-        marginLeft: 6,
-    },
-    editProfileButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(145, 82, 0, 0.05)',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(145, 82, 0, 0.2)',
-    },
-    editProfileButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.primary,
-        marginLeft: 8,
     },
     // Common Card Styles
     card: {
@@ -673,6 +656,39 @@ const styles = StyleSheet.create({
         borderColor: '#cbd5e1',
         color: '#64748b',
     },
+    // Floating Button Styles
+    floatingButtonContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        elevation: 10,
+        zIndex: 100,
+    },
+    floatingSaveButton: {
+        backgroundColor: COLORS.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 18,
+        borderRadius: 30, // Pill shape
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    floatingSaveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: 10,
+        letterSpacing: 0.5,
+    },
+    saveButtonDisabled: {
+        opacity: 0.7,
+    },
+    // Legacy Button (if still referenced)
     saveButton: {
         backgroundColor: COLORS.primary,
         flexDirection: 'row',
@@ -681,9 +697,6 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 12,
         marginTop: 8,
-    },
-    saveButtonDisabled: {
-        opacity: 0.7,
     },
     saveButtonText: {
         color: '#fff',

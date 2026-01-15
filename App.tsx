@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { StatusBar, View } from 'react-native';
-
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -123,14 +124,17 @@ function App() {
   const isLoginOrRegister = currentScreen === 'LOGIN' || currentScreen === 'REGISTER';
 
   return (
-    <View style={{ flex: 1, backgroundColor: isLoginOrRegister ? COLORS.backgroundGradient[0] : COLORS.light }}>
-      <StatusBar
-        barStyle={isLoginOrRegister ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-      {renderScreen()}
-    </View>
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: isLoginOrRegister ? COLORS.backgroundGradient[0] : COLORS.light }}>
+        <StatusBar
+          barStyle={isLoginOrRegister ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
+        {renderScreen()}
+        <Toast />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

@@ -16,6 +16,7 @@ import { COLORS } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import { APIURL } from '../constants/api';
 import { launchImageLibrary } from 'react-native-image-picker';
+import GoldTicker from '../components/GoldTicker';
 
 import DashboardTab from '../components/dashboard/DashboardTab';
 import MerchantsTab from '../components/dashboard/MerchantsTab';
@@ -185,11 +186,11 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
             <View style={styles.header}>
                 <View>
                     <Text style={styles.headerTitle}>A U R U M</Text>
-                    <Text style={styles.headerSubtitle}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</Text>
+                    {/* <Text style={styles.headerSubtitle}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</Text> */}
                 </View>
-                <TouchableOpacity onPress={handleLogoutPress} style={styles.logoutButton}>
-                    <Icon name="sign-out-alt" size={20} color={COLORS.danger} />
-                </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 80, marginRight: 10 }}>
+                    <GoldTicker />
+                </View>
             </View>
 
             <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>

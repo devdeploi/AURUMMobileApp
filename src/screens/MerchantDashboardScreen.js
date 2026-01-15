@@ -234,39 +234,45 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
             return;
         }
 
+        console.log('Initiating upgrade payment...');
+
+
         try {
             // 1. Create Order
+            console.log('Creating subscription order...');
             const { data: order } = await axios.post(`${APIURL}/payments/create-subscription-order`, {
                 amount: 5000 // Rs 5000
             });
+            console.log('Order created:', order);
+
 
             // 2. Open Razorpay
             const options = {
-                description: 'Upgrade to Platinum Plan',
-                image: 'https://i.imgur.com/3g7nmJC.png', // Optional
+                description: 'Upgrade to Premium Plan',
                 currency: order.currency,
-                key: 'rzp_test_S0aFMLxRqwkL8z', // Use config or env in real app
+                key: 'rzp_test_S0aFMLxRqwkL8z',
                 amount: order.amount,
                 name: 'Aurum Jewellery',
                 order_id: order.id,
-                prefill: {
-                    email: profileData.email,
-                    contact: profileData.phone,
-                    name: profileData.name
-                },
                 theme: { color: COLORS.primary }
             };
 
+            console.log('Opening Razorpay options:', options);
             RazorpayCheckout.open(options).then(async (data) => {
                 // handle success
+                console.log('Razorpay success:', data);
                 try {
+                    console.log('Verifying payment...');
+
                     const verifyRes = await axios.post(`${APIURL}/payments/verify-subscription-payment`, {
                         razorpay_order_id: data.razorpay_order_id,
                         razorpay_payment_id: data.razorpay_payment_id,
                         razorpay_signature: data.razorpay_signature
                     });
+                    console.log('Verification response:', verifyRes.data);
 
                     if (verifyRes.data.status === 'success') {
+
                         const token = user.token;
                         const id = user._id || user.id;
                         // Update Plan on Backend
@@ -283,9 +289,11 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                 }
             }).catch((error) => {
                 // handle failure
+                console.log('Razorpay failure:', error);
                 console.log(error);
                 Alert.alert("Error", `Payment Failed: ${error.description || 'Unknown error'}`);
             });
+
 
         } catch (error) {
             console.error(error);
@@ -339,12 +347,12 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerRow}>
-                    <Image source={{ uri: 'aurum_logo' }} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
-                    <Text style={styles.appTitle}>Merchant Portal</Text>
+                    <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
+                    <Text style={styles.appTitle}>A U R U M</Text>
                 </View>
-                <TouchableOpacity onPress={() => setShowLogoutModal(true)}>
-                    <Icon name="sign-out-alt" size={20} color={COLORS.danger} />
-                </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                    <GoldTicker />
+                </View>
             </View>
 
             {/* Content */}
