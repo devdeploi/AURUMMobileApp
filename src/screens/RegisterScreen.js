@@ -1,3 +1,4 @@
+/* eslint-disable react-native/no-inline-styles */
 import React, { useState } from 'react';
 import {
     View,
@@ -5,15 +6,19 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    Alert,
     ScrollView,
     SafeAreaView,
-    ActivityIndicator
+    ActivityIndicator,
+    Image
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import { COLORS } from '../styles/theme';
 import { APIURL } from '../constants/api';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+
+import CustomAlert from '../components/CustomAlert';
+import FCMService from '../services/FCMService';
 
 const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
     const [firstName, setFirstName] = useState('');
@@ -24,31 +29,54 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // OTP & Step State
     const [step, setStep] = useState(1);
     const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    // Custom Alert State
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+        buttons: []
+    });
+
+    const hideAlert = () => {
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+    };
+
     const handleSendOtp = async () => {
         if (!firstName || !lastName || !email || !password || !phone) {
-            Alert.alert('Error', 'Please fill all fields');
+            setAlertConfig({ visible: true, title: 'Error', message: 'Please fill all fields', type: 'error' });
             return;
         }
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            setAlertConfig({ visible: true, title: 'Error', message: 'Passwords do not match', type: 'error' });
             return;
         }
 
         setIsLoading(true);
         try {
-            // Send OTP (Route is generic on backend now)
-            await axios.post(`${APIURL}/merchants/send-reg-otp`, { email });
-            Alert.alert('Success', `OTP sent to ${email}`);
-            setStep(2);
+            await axios.post(`${APIURL}/merchants/send-reg-otp`, { email, phone });
+            setAlertConfig({
+                visible: true,
+                title: 'Success',
+                message: `OTP sent to ${email}`,
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => setStep(2) }]
+            });
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', error.response?.data?.message || 'Failed to send OTP');
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'Failed to send OTP',
+                type: 'error'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -56,7 +84,7 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
 
     const handleVerifyAndRegister = async () => {
         if (otp.length !== 6) {
-            Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter a valid 6-digit OTP', type: 'error' });
             return;
         }
 
@@ -77,152 +105,197 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
 
             const { data } = await axios.post(`${APIURL}/users`, userData);
 
-            Alert.alert('Success', 'Account created successfully!');
-
-            // Log them in immediately or switch to login
-            // onRegister usually handles the successful auth state in the parent
-            // But let's check if onRegister expects user data or just switches view
-            // Assuming onRegister propagates login
-            onRegister(data);
+            setAlertConfig({
+                visible: true,
+                title: 'Success',
+                message: 'Account created successfully!',
+                type: 'success',
+                buttons: [{
+                    text: 'Login Now',
+                    onPress: () => {
+                        FCMService.displayLocalNotification('Welcome to Aurum', 'Your account has been created successfully!');
+                        onRegister(data);
+                    }
+                }]
+            });
 
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', error.response?.data?.message || 'Registration failed');
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'Registration failed',
+                type: 'error'
+            });
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.card}>
-                    <Icon name="user-plus" size={40} color={COLORS.primary} style={styles.headerIcon} />
-                    <Text style={styles.title}>Create User Account</Text>
-                    <Text style={styles.subtitle}>
-                        {step === 1 ? 'Enter your details' : 'Verify your email'}
-                    </Text>
+        <LinearGradient
+            colors={['#ebdc87', '#f3e9bd']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.container}
+        >
+            <SafeAreaView style={{ flex: 1 }}>
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <View style={styles.card}>
+                        <Image source={require('../assets/AURUM.png')} style={styles.logo} />
+                        {/* <Text style={styles.appTitle}>A U R U M</Text> */}
+                        <Text style={styles.title}>USER SIGN UP</Text>
+                        <Text style={styles.subtitle}>
+                            {step === 1 ? 'REGISTER WITH AURUM' : 'VERIFY EMAIL'}
+                        </Text>
 
-                    {step === 1 ? (
-                        <>
-                            <View style={styles.row}>
+                        {step === 1 ? (
+                            <>
+                                <View style={styles.row}>
+                                    <TextInput
+                                        style={styles.rowInputLeft}
+                                        placeholder="First Name"
+                                        placeholderTextColor={COLORS.textSecondary}
+                                        value={firstName}
+                                        onChangeText={setFirstName}
+                                    />
+                                    <TextInput
+                                        style={styles.rowInputRight}
+                                        placeholder="Last Name"
+                                        placeholderTextColor={COLORS.textSecondary}
+                                        value={lastName}
+                                        onChangeText={setLastName}
+                                    />
+                                </View>
+
                                 <TextInput
-                                    style={styles.rowInputLeft}
-                                    placeholder="First Name"
+                                    style={styles.input}
+                                    placeholder="Email Address"
                                     placeholderTextColor={COLORS.textSecondary}
-                                    value={firstName}
-                                    onChangeText={setFirstName}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
                                 />
+
                                 <TextInput
-                                    style={styles.rowInputRight}
-                                    placeholder="Last Name"
+                                    style={styles.input}
+                                    placeholder="Phone Number"
                                     placeholderTextColor={COLORS.textSecondary}
-                                    value={lastName}
-                                    onChangeText={setLastName}
+                                    value={phone}
+                                    onChangeText={setPhone}
+                                    keyboardType="phone-pad"
                                 />
-                            </View>
 
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Email Address"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
 
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Phone Number"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={phone}
-                                onChangeText={setPhone}
-                                keyboardType="phone-pad"
-                            />
 
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Address"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={address}
-                                onChangeText={setAddress}
-                            />
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Password"
+                                        placeholderTextColor={COLORS.textSecondary}
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={!showPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeIcon}
+                                        onPress={() => setShowPassword(!showPassword)}
+                                    >
+                                        <Icon name={showPassword ? 'eye' : 'eye-slash'} size={20} color={COLORS.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View style={styles.passwordContainer}>
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Confirm Password"
+                                        placeholderTextColor={COLORS.textSecondary}
+                                        value={confirmPassword}
+                                        onChangeText={setConfirmPassword}
+                                        secureTextEntry={!showConfirmPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeIcon}
+                                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    >
+                                        <Icon name={showConfirmPassword ? 'eye' : 'eye-slash'} size={20} color={COLORS.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {password && confirmPassword && password !== confirmPassword && (
+                                    <Text style={styles.errorText}>Passwords do not match</Text>
+                                )}
+                                {password && confirmPassword && password === confirmPassword && (
+                                    <Text style={styles.successText}>Passwords match</Text>
+                                )}
+
                                 <TextInput
-                                    style={styles.passwordInput}
-                                    placeholder="Password"
+                                    style={[styles.input, styles.textArea]}
+                                    placeholder="Address"
                                     placeholderTextColor={COLORS.textSecondary}
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={!showPassword}
+                                    value={address}
+                                    onChangeText={setAddress}
+                                    multiline={true}
+                                    numberOfLines={3}
                                 />
-                                <TouchableOpacity
-                                    style={styles.eyeIcon}
-                                    onPress={() => setShowPassword(!showPassword)}
-                                >
-                                    <Icon name={showPassword ? 'eye' : 'eye-slash'} size={20} color={COLORS.textSecondary} />
+
+                                <TouchableOpacity style={styles.button} onPress={handleSendOtp} disabled={isLoading}>
+                                    {isLoading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.buttonText}>Next</Text>
+                                    )}
                                 </TouchableOpacity>
-                            </View>
+                            </>
+                        ) : (
+                            <>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter 6-digit OTP"
+                                    placeholderTextColor={COLORS.textSecondary}
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="numeric"
+                                    maxLength={6}
+                                />
+                                <TouchableOpacity style={styles.button} onPress={handleVerifyAndRegister} disabled={isLoading}>
+                                    {isLoading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.buttonText}>Verify & Register</Text>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setStep(1)} style={styles.linkButton}>
+                                    <Text style={styles.linkText}>Back to Details</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
 
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Confirm Password"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                secureTextEntry
-                            />
-
-                            <TouchableOpacity style={styles.button} onPress={handleSendOtp} disabled={isLoading}>
-                                {isLoading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.buttonText}>Next</Text>
-                                )}
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>Already have an account? </Text>
+                            <TouchableOpacity onPress={onSwitchToLogin}>
+                                <Text style={styles.loginLink}>SIGN IN</Text>
                             </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter 6-digit OTP"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={otp}
-                                onChangeText={setOtp}
-                                keyboardType="numeric"
-                                maxLength={6}
-                            />
-                            <TouchableOpacity style={styles.button} onPress={handleVerifyAndRegister} disabled={isLoading}>
-                                {isLoading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.buttonText}>Verify & Register</Text>
-                                )}
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setStep(1)} style={styles.linkButton}>
-                                <Text style={styles.linkText}>Back to Details</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
-                        <TouchableOpacity onPress={onSwitchToLogin}>
-                            <Text style={styles.loginLink}>Login Here</Text>
-                        </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                </ScrollView>
+            </SafeAreaView>
+            <CustomAlert
+                visible={alertConfig.visible}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                buttons={alertConfig.buttons}
+                onClose={hideAlert}
+            />
+        </LinearGradient>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.backgroundGradient[0],
         justifyContent: 'center',
     },
     scrollContent: {
@@ -241,6 +314,19 @@ const styles = StyleSheet.create({
     headerIcon: {
         marginBottom: 10,
     },
+    logo: {
+        width: 80,
+        height: 80,
+        marginBottom: 10,
+        resizeMode: 'contain'
+    },
+    appTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+        letterSpacing: 2,
+        marginBottom: 5,
+    },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
@@ -250,7 +336,8 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 14,
         color: COLORS.textSecondary,
-        marginBottom: 20,
+        marginBottom: 15,
+        fontWeight: "700",
     },
     row: {
         flexDirection: 'row',
@@ -264,6 +351,8 @@ const styles = StyleSheet.create({
         padding: 15,
         color: COLORS.textPrimary,
         marginBottom: 15,
+        borderWidth: 0.5,
+        borderColor: COLORS.primary,
     },
     rowInputLeft: {
         flex: 1,
@@ -272,6 +361,8 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 15,
         color: COLORS.textPrimary,
+        borderWidth: 0.5,
+        borderColor: COLORS.primary,
     },
     rowInputRight: {
         flex: 1,
@@ -280,6 +371,8 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 15,
         color: COLORS.textPrimary,
+        borderWidth: 0.5,
+        borderColor: COLORS.primary,
     },
     passwordInput: {
         marginBottom: 0,
@@ -297,6 +390,8 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.inputBackground,
         borderRadius: 10,
         marginBottom: 15,
+        borderWidth: 0.5,
+        borderColor: COLORS.primary,
     },
     eyeIcon: {
         padding: 10,
@@ -333,6 +428,24 @@ const styles = StyleSheet.create({
     linkText: {
         color: COLORS.textPrimary,
         textDecorationLine: 'underline'
+    },
+    errorText: {
+        color: COLORS.danger,
+        fontSize: 12,
+        marginBottom: 10,
+        marginLeft: 5,
+        alignSelf: 'flex-start'
+    },
+    successText: {
+        color: COLORS.success,
+        fontSize: 12,
+        marginBottom: 10,
+        marginLeft: 5,
+        alignSelf: 'flex-start'
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
     }
 });
 

@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import GoldTicker from '../components/GoldTicker';
+
 
 const MerchantOverview = ({ user, stats }) => {
     return (
@@ -29,12 +29,12 @@ const MerchantOverview = ({ user, stats }) => {
             </View>
 
             {/* Additional Dashboard Info */}
-            <View style={[styles.promoCard, { marginTop: 20, backgroundColor: COLORS.glass, padding: 20, borderRadius: 15 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                    <Icon name="crown" size={24} color={COLORS.primary} style={{ marginRight: 10 }} />
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.primary }}>Your Plan</Text>
+            <View style={[styles.promoCard, { marginTop: 20, backgroundColor: COLORS.dark, padding: 20, borderRadius: 15, alignItems: 'center' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'center' }}>
+                    <Icon name="crown" size={24} color={COLORS.warning} style={{ marginRight: 10 }} />
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.warning }}>Your Plan</Text>
                 </View>
-                <Text style={{ color: COLORS.primaryDark }}>Current Plan: <Text style={{ fontWeight: 'bold' }}>{user.plan || 'Standard'}</Text></Text>
+                <Text style={{ color: COLORS.warning }}>Current Plan: <Text style={{ fontWeight: 'bold' }}>{user.plan || 'Standard'}</Text></Text>
             </View>
         </ScrollView>
     );
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         width: '48%',
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         padding: 15,
         borderRadius: 15,
         shadowColor: '#000',
@@ -74,7 +74,9 @@ const styles = StyleSheet.create({
         elevation: 3,
         marginBottom: 15,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
     },
     statNumber: {
         fontSize: 24,

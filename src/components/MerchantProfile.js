@@ -25,6 +25,7 @@ const MerchantProfile = ({
     onLogout
 }) => {
     const [showPremiumModal, setShowPremiumModal] = useState(false);
+    const [billingCycle, setBillingCycle] = useState('monthly');
 
     return (
         <View style={{ flex: 1 }}>
@@ -64,6 +65,11 @@ const MerchantProfile = ({
                                 <Icon name="crown" size={10} color="#F59E0B" />
                                 <Text style={styles.planTextMinimal}>{profileData.plan || 'Standard'}</Text>
                             </View>
+                            {profileData.subscriptionExpiryDate && (
+                                <Text style={{ fontSize: 11, color: COLORS.secondary, marginTop: 4 }}>
+                                    Renew: {new Date(profileData.subscriptionExpiryDate).toLocaleDateString()}
+                                </Text>
+                            )}
                         </View>
 
                         <TouchableOpacity
@@ -100,14 +106,23 @@ const MerchantProfile = ({
                                 />
                             </View>
 
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Email</Text>
+                                <TextInput
+                                    style={[styles.input, styles.readOnlyInput]}
+                                    value={profileData.email}
+                                    editable={false}
+                                    placeholder="Email Address"
+                                />
+                            </View>
+
                             <View style={styles.inputRow}>
                                 <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
                                     <Text style={styles.inputLabel}>Phone</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, styles.readOnlyInput]}
                                         value={profileData.phone}
-                                        onChangeText={(text) => setProfileData({ ...profileData, phone: text })}
-                                        keyboardType="phone-pad"
+                                        editable={false}
                                         placeholder="Phone number"
                                     />
                                 </View>
@@ -414,13 +429,30 @@ const MerchantProfile = ({
                             <ScrollView style={styles.modalBody}>
                                 <Text style={styles.modalSubtitle}>Unlock exclusive features for your business</Text>
 
-                                {/* <View style={styles.featureItem}>
-                                <View style={styles.featureIconContainer}>
-                                    <Icon name="check" size={12} color="#fff" />
+                                {/* Toggle Container */}
+                                <View style={styles.toggleContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.toggleButton, billingCycle === 'monthly' && styles.toggleButtonActive]}
+                                        onPress={() => setBillingCycle('monthly')}
+                                    >
+                                        <Text style={[styles.toggleText, billingCycle === 'monthly' && styles.toggleTextActive]}>Monthly</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.toggleButton, billingCycle === 'yearly' && styles.toggleButtonActive]}
+                                        onPress={() => setBillingCycle('yearly')}
+                                    >
+                                        <Text style={[styles.toggleText, billingCycle === 'yearly' && styles.toggleTextActive]}>
+                                            Yearly <Text style={{ fontSize: 10 }}>(Save 17%)</Text>
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
-                                <Text style={styles.featureText}>Verified Merchant Badge</Text>
-                            </View> */}
-
+                                <View style={styles.priceContainer}>
+                                    {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
+                                    <Text style={styles.priceValue}>
+                                        {billingCycle === 'monthly' ? '₹5000' : '₹50000'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'}</Text>
+                                    </Text>
+                                </View>
+                                {/* Features */}
                                 <View style={styles.featureItem}>
                                     <View style={styles.featureIconContainer}>
                                         <Icon name="check" size={12} color="#fff" />
@@ -442,10 +474,7 @@ const MerchantProfile = ({
                                     <Text style={styles.featureText}>Priority 24/7 Support</Text>
                                 </View>
 
-                                <View style={styles.priceContainer}>
-                                    {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
-                                    <Text style={styles.priceValue}>Rs 5000 <Text style={styles.pricePeriod}>/ Month</Text></Text>
-                                </View>
+
                             </ScrollView>
 
                             <View style={styles.modalFooter}>
@@ -453,7 +482,7 @@ const MerchantProfile = ({
                                     style={styles.payButton}
                                     onPress={() => {
                                         setShowPremiumModal(false);
-                                        handleUpgradePayment();
+                                        handleUpgradePayment(billingCycle);
                                     }}
                                 >
                                     <Text style={styles.payButtonText}>Pay & Upgrade</Text>
@@ -505,7 +534,7 @@ const styles = StyleSheet.create({
     },
     // Minimal Profile Header Styles
     profileHeaderMinimal: {
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         borderRadius: 12,
         padding: 16,
         marginBottom: 16,
@@ -514,6 +543,8 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
     },
     profileRow: {
         flexDirection: 'row',
@@ -561,7 +592,7 @@ const styles = StyleSheet.create({
 
     // Legacy Styles (kept to prevent crashes if referenced elsewhere, though mostly replaced)
     profileHeaderCard: {
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         borderRadius: 20,
         padding: 24,
         alignItems: 'center',
@@ -571,10 +602,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 12,
         elevation: 5,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
     },
     // Common Card Styles
     card: {
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
@@ -583,6 +616,8 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.08,
         shadowRadius: 8,
         elevation: 3,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -961,7 +996,7 @@ const styles = StyleSheet.create({
     },
     // Upgrade Card Styles
     upgradeCard: {
-        backgroundColor: 'linear-gradient(135deg, rgba(145, 82, 0, 0.1), rgba(245, 158, 11, 0.1))',
+        backgroundColor: COLORS.glass,
         borderRadius: 16,
         marginBottom: 16,
         borderWidth: 1.5,
@@ -1141,6 +1176,37 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '700',
+    },
+    // Toggle Styles
+    toggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f5f9',
+        borderRadius: 25,
+        padding: 4,
+        marginBottom: 20,
+        marginHorizontal: 10,
+    },
+    toggleButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 20,
+    },
+    toggleButtonActive: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    toggleText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.secondary,
+    },
+    toggleTextActive: {
+        color: COLORS.primary,
     },
 });
 

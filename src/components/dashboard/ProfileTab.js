@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
 
-const ProfileTab = ({ user, onUpdate, onUpdateImage }) => {
+const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(user.name);
     const [phone, setPhone] = useState(user.phone || '');
@@ -71,7 +71,23 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage }) => {
             {/* Modern Header */}
             <View style={styles.headerContainer}>
                 <View style={styles.headerContent}>
-                    <Text style={styles.sectionTitle}>Profile</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10 }}>
+                        <Text style={styles.sectionTitle}>Profile</Text>
+                        {!isEditing && (
+                            <TouchableOpacity
+                                style={styles.smallEditButton}
+                                onPress={() => {
+                                    setName(user.name);
+                                    setPhone(user.phone || '');
+                                    setAddress(user.address || '');
+                                    setIsEditing(true);
+                                }}
+                            >
+                                <Icon name="pen" size={10} color="#fff" />
+                                <Text style={styles.smallEditText}>Edit</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                     <Text style={styles.sectionSubtitle}>Manage your personal information</Text>
                 </View>
                 <View style={styles.headerDecoration}>
@@ -142,16 +158,29 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage }) => {
 
                         <View style={styles.inputGroup}>
                             <View style={styles.inputLabelContainer}>
+                                <Icon name="envelope" size={14} color={COLORS.primary} />
+                                <Text style={styles.inputLabel}>Email Address</Text>
+                            </View>
+                            <TextInput
+                                style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
+                                value={user.email}
+                                editable={false}
+                                placeholder="Email Address"
+                                placeholderTextColor="#999"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <View style={styles.inputLabelContainer}>
                                 <Icon name="phone-alt" size={14} color={COLORS.primary} />
                                 <Text style={styles.inputLabel}>Phone Number</Text>
                             </View>
                             <TextInput
-                                style={[styles.input, styles.inputWithIcon]}
+                                style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
                                 value={phone}
-                                onChangeText={setPhone}
+                                editable={false}
                                 placeholder="+1 (555) 123-4567"
                                 placeholderTextColor="#999"
-                                keyboardType="phone-pad"
                             />
                         </View>
 
@@ -245,10 +274,7 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage }) => {
                         </View>
 
                         <View style={styles.infoCard}>
-                            <View style={styles.infoCardHeader}>
-                                <Icon name="envelope-open-text" size={16} color={COLORS.primary} />
-                                <Text style={styles.infoCardTitle}>Contact Information</Text>
-                            </View>
+
 
                             <View style={styles.infoItem}>
                                 <View style={styles.infoLabelContainer}>
@@ -261,29 +287,21 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage }) => {
 
                         </View>
 
-                        {/* Edit Button - Modern Design */}
-                        <TouchableOpacity
-                            style={styles.editTriggerButton}
-                            onPress={() => {
-                                setName(user.name);
-                                setPhone(user.phone || '');
-                                setAddress(user.address || '');
-                                setIsEditing(true);
-                            }}
-                            activeOpacity={0.9}
-                        >
-                            <View style={styles.editButtonContent}>
-                                <Icon name="edit" size={18} color="#fff" />
-                                <View style={styles.editButtonTextContainer}>
-                                    <Text style={styles.editButtonTitle}>Edit Profile</Text>
-                                    <Text style={styles.editButtonSubtitle}>Update your personal details</Text>
-                                </View>
-                                <Icon name="chevron-right" size={16} color="#fff" />
-                            </View>
-                        </TouchableOpacity>
+
                     </View>
                 )}
             </View>
+
+            {/* Logout Button */}
+            {!isEditing && (
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={onLogout}
+                >
+                    <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
+                    <Text style={styles.logoutText}>Sign Out</Text>
+                </TouchableOpacity>
+            )}
 
             {/* Footer Note */}
             {!isEditing && (
@@ -531,7 +549,7 @@ const styles = StyleSheet.create({
     infoCard: {
         backgroundColor: COLORS.inputBackground,
         borderRadius: 16,
-        padding: 20,
+        padding: 5,
         marginBottom: 16,
         borderWidth: 1,
         borderColor: '#f0f0f0',
@@ -640,6 +658,43 @@ const styles = StyleSheet.create({
         color: COLORS.secondary,
         marginLeft: 8,
         fontWeight: '500',
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: 'rgba(239, 68, 68, 0.2)',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    logoutText: {
+        color: COLORS.danger,
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 12,
+    },
+    readOnlyInput: {
+        backgroundColor: '#e2e8f0',
+        borderColor: '#cbd5e1',
+        color: '#64748b',
+    },
+    smallEditButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 15,
+    },
+    smallEditText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '600',
+        marginLeft: 4,
     },
 });
 

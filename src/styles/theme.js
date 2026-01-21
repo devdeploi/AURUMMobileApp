@@ -10,12 +10,12 @@ export const COLORS = {
   dark: '#343a40',
   white: '#ffffff',
   white50: 'rgba(255, 255, 255, 0.5)',
-  glass: '#f3e9bd', // Cream color for card background
+  glass: 'rgba(255, 255, 255, 0.85)', // Frosted glass effect
   glassBorder: 'rgba(255, 255, 255, 0.4)',
   backgroundGradient: ['#915200', '#7a4400'],
   textPrimary: '#915200',
   textSecondary: 'rgba(145, 82, 0, 0.7)',
-  inputBackground: 'rgba(255, 255, 255, 0.3)',
+  inputBackground: 'rgba(255, 255, 255, 0.5)',
 };
 
 export const FONTS = {

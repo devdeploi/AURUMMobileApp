@@ -2,6 +2,8 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react-native/no-inline-styles */
 
+import LinearGradient from 'react-native-linear-gradient';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
@@ -11,7 +13,6 @@ import {
     TouchableOpacity,
     Modal,
     ActivityIndicator,
-    Alert,
     TextInput,
     ScrollView,
     Image
@@ -30,10 +31,14 @@ import MerchantOverview from '../components/MerchantOverview';
 import MerchantPlans from '../components/MerchantPlans';
 import MerchantUsers from '../components/MerchantUsers';
 import MerchantProfile from '../components/MerchantProfile';
+import SubscriptionExpired from '../components/SubscriptionExpired';
+import CustomAlert from '../components/CustomAlert';
 
 const MerchantDashboardScreen = ({ user, onLogout }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [blockingRenewal, setBlockingRenewal] = useState(false);
+    const [showRenewalModal, setShowRenewalModal] = useState(false);
 
     const merchantTabs = [
         { id: 'overview', icon: 'chart-pie', label: 'Overview' },
@@ -41,6 +46,19 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
         { id: 'subscribers', icon: 'users', label: 'Users' },
         { id: 'profile', icon: 'user-cog', label: 'Profile' },
     ];
+
+    // Custom Alert State
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+        buttons: []
+    });
+
+    const hideAlert = () => {
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+    };
 
     const [stats, setStats] = useState({ activePlans: 0, totalEnrolled: 0 });
     const [plans, setPlans] = useState([]);
@@ -73,7 +91,18 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
             const activePlans = fetchedPlans.length;
             const totalEnrolled = fetchedPlans.reduce((acc, plan) => acc + (plan.subscribers ? plan.subscribers.length : 0), 0);
 
-            setStats({ activePlans, totalEnrolled });
+            // Calculate Financials
+            const totalMonthly = fetchedPlans.reduce((acc, plan) => {
+                const subCount = plan.subscribers ? plan.subscribers.length : 0;
+                return acc + (plan.monthlyAmount * subCount);
+            }, 0);
+
+            const totalAUM = fetchedPlans.reduce((acc, plan) => {
+                const subCount = plan.subscribers ? plan.subscribers.length : 0;
+                return acc + (plan.totalAmount * subCount);
+            }, 0);
+
+            setStats({ activePlans, totalEnrolled, totalMonthly, totalAUM });
 
             // Derive subscribers from plans
             let allSubscribers = [];
@@ -138,22 +167,119 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
             await axios.put(`${APIURL}/merchants/${id}`, profileData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            Alert.alert('Success', 'Profile updated successfully');
+            setAlertConfig({ visible: true, title: 'Success', message: 'Profile updated successfully', type: 'success' });
             setIsEditingProfile(false);
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Failed to update profile');
+            setAlertConfig({ visible: true, title: 'Error', message: 'Failed to update profile', type: 'error' });
         } finally {
             setUpdatingProfile(false);
         }
     };
+
+    // Check for Expiry
+    if (profileData.subscriptionExpiryDate) {
+        const expiry = new Date(profileData.subscriptionExpiryDate);
+        const now = new Date();
+        const diffTime = now.getTime() - expiry.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+        if (diffDays > 1 && profileData.subscriptionStatus === 'expired') {
+            if (blockingRenewal) {
+                return (
+                    <LinearGradient
+                        colors={['#ebdc87', '#f3e9bd']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.container}
+                    >
+                        <SafeAreaView style={{ flex: 1 }}>
+                            <View style={{ flex: 1, padding: 20 }}>
+                                <TouchableOpacity style={{ marginBottom: 20 }} onPress={() => setBlockingRenewal(false)}>
+                                    <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Back</Text>
+                                </TouchableOpacity>
+                                <SubscriptionExpired
+                                    user={user}
+                                    onRenew={(updatedUser) => {
+                                        setProfileData(prev => ({ ...prev, ...updatedUser }));
+                                        setBlockingRenewal(false);
+                                    }}
+                                    existingPlanCount={stats.activePlans}
+                                    plans={plans}
+                                    onRefreshPlans={fetchPlans}
+                                />
+                            </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                );
+            }
+            return (
+                <LinearGradient
+                    colors={['#ebdc87', '#f3e9bd']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.container}
+                >
+                    <SafeAreaView style={{ flex: 1 }}>
+                        <View style={styles.modalContent}>
+                            <Icon name="lock" size={50} color={COLORS.danger} style={{ marginBottom: 20 }} />
+                            <Text style={styles.modalTitle}>Subscription Expired</Text>
+                            <Text style={styles.modalText}>Your grace period has ended. Please renew to continue.</Text>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.confirmButton, { width: '100%', marginBottom: 15 }]}
+                                onPress={() => setBlockingRenewal(true)}
+                            >
+                                <Text style={styles.confirmButtonText}>Renew Now</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={onLogout}>
+                                <Text style={styles.logoutText}>Logout</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </SafeAreaView>
+                </LinearGradient>
+            );
+        }
+    }
+
+    if (showRenewalModal) {
+        return (
+            <LinearGradient
+                colors={['#ebdc87', '#f3e9bd']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.container}
+            >
+                <SafeAreaView style={{ flex: 1 }}>
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.header}>
+                            <TouchableOpacity onPress={() => setShowRenewalModal(false)}>
+                                <Icon name="arrow-left" size={20} color={COLORS.primary} />
+                            </TouchableOpacity>
+                            <Text style={styles.appTitle}>Renewal</Text>
+                            <View style={{ width: 20 }} />
+                        </View>
+                        <SubscriptionExpired
+                            user={user}
+                            onRenew={(updatedUser) => {
+                                setProfileData(prev => ({ ...prev, ...updatedUser }));
+                                setShowRenewalModal(false);
+                            }}
+                            existingPlanCount={stats.activePlans}
+                            plans={plans}
+                            onRefreshPlans={fetchPlans}
+                        />
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
+        );
+    }
 
     // --- NEW HELPER FUNCTIONS ---
 
     const verifyBankAccount = async () => {
         const { accountNumber, ifscCode, accountHolderName } = profileData.bankDetails || {};
         if (!accountNumber || !ifscCode) {
-            Alert.alert("Missing Info", "Please enter Account Number and IFSC code.");
+            setAlertConfig({ visible: true, title: 'Missing Info', message: 'Please enter Account Number and IFSC code.', type: 'warning' });
             return;
         }
 
@@ -169,13 +295,13 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                     verificationStatus: 'verified'
                 };
                 setProfileData(prev => ({ ...prev, bankDetails: updatedBankDetails }));
-                Alert.alert("Success", `Bank Verified: ${data.data.verifiedName}`);
+                setAlertConfig({ visible: true, title: 'Success', message: `Bank Verified: ${data.data.verifiedName}`, type: 'success' });
             } else {
-                Alert.alert("Failed", "Bank Verification Failed");
+                setAlertConfig({ visible: true, title: 'Failed', message: 'Bank Verification Failed', type: 'error' });
             }
         } catch (error) {
             console.error(error);
-            Alert.alert("Error", error.response?.data?.message || "Bank Verification Failed");
+            setAlertConfig({ visible: true, title: 'Error', message: error.response?.data?.message || "Bank Verification Failed", type: 'error' });
         } finally {
             setVerifyingBank(false);
         }
@@ -212,11 +338,11 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                     shopImages: [...(prev.shopImages || []), imagePath]
                 }));
             }
-            Alert.alert("Success", "Variable uploaded successfully");
+            setAlertConfig({ visible: true, title: 'Success', message: 'Variable uploaded successfully', type: 'success' });
 
         } catch (error) {
             console.error("Upload failed", error);
-            Alert.alert("Error", "Image upload failed");
+            setAlertConfig({ visible: true, title: 'Error', message: 'Image upload failed', type: 'error' });
         } finally {
             setUploadingDoc(false);
         }
@@ -228,29 +354,31 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
         setProfileData(prev => ({ ...prev, shopImages: newImages }));
     };
 
-    const handleUpgradePayment = async () => {
+    const handleUpgradePayment = async (billingCycle = 'monthly') => {
         if (profileData.plan === 'Premium') {
-            Alert.alert("Info", "You are already a Premium member!");
+            setAlertConfig({ visible: true, title: 'Info', message: 'You are already a Premium member!', type: 'info' });
             return;
         }
 
-        console.log('Initiating upgrade payment...');
-
+        console.log('Initiating upgrade payment...', billingCycle);
 
         try {
             // 1. Create Order
             console.log('Creating subscription order...');
+            const amount = billingCycle === 'yearly' ? 50000 : 5000;
+
             const { data: order } = await axios.post(`${APIURL}/payments/create-subscription-order`, {
-                amount: 5000 // Rs 5000
+                amount: amount,
+                billingCycle: billingCycle
             });
             console.log('Order created:', order);
 
 
             // 2. Open Razorpay
             const options = {
-                description: 'Upgrade to Premium Plan',
+                description: `Upgrade to Premium Plan (${billingCycle})`,
                 currency: order.currency,
-                key: 'rzp_test_S0aFMLxRqwkL8z',
+                key: 'rzp_test_S6RoMCiZCpsLo7',
                 amount: order.amount,
                 name: 'Aurum Jewellery',
                 order_id: order.id,
@@ -267,7 +395,8 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                     const verifyRes = await axios.post(`${APIURL}/payments/verify-subscription-payment`, {
                         razorpay_order_id: data.razorpay_order_id,
                         razorpay_payment_id: data.razorpay_payment_id,
-                        razorpay_signature: data.razorpay_signature
+                        razorpay_signature: data.razorpay_signature,
+                        billingCycle: billingCycle
                     });
                     console.log('Verification response:', verifyRes.data);
 
@@ -276,28 +405,33 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                         const token = user.token;
                         const id = user._id || user.id;
                         // Update Plan on Backend
-                        const updatePayload = { ...profileData, plan: 'Premium', paymentId: data.razorpay_payment_id };
+                        const updatePayload = {
+                            ...profileData,
+                            plan: 'Premium',
+                            paymentId: data.razorpay_payment_id,
+                            billingCycle: billingCycle
+                        };
                         const { data: updatedMerchant } = await axios.put(`${APIURL}/merchants/${id}`, updatePayload, {
                             headers: { Authorization: `Bearer ${token}` }
                         });
 
                         setProfileData(prev => ({ ...prev, ...updatedMerchant }));
-                        Alert.alert("Success", "Welcome to Premium Plan!");
+                        setAlertConfig({ visible: true, title: 'Success', message: 'Welcome to Premium Plan!', type: 'success' });
                     }
                 } catch (err) {
-                    Alert.alert("Error", "Payment Verification Failed");
+                    setAlertConfig({ visible: true, title: 'Error', message: 'Payment Verification Failed', type: 'error' });
                 }
             }).catch((error) => {
                 // handle failure
                 console.log('Razorpay failure:', error);
                 console.log(error);
-                Alert.alert("Error", `Payment Failed: ${error.description || 'Unknown error'}`);
+                setAlertConfig({ visible: true, title: 'Error', message: `Payment Failed: ${error.description || 'Unknown error'}`, type: 'error' });
             });
 
 
         } catch (error) {
             console.error(error);
-            Alert.alert("Error", "Failed to initiate payment");
+            setAlertConfig({ visible: true, title: 'Error', message: 'Failed to initiate payment', type: 'error' });
         }
     };
 
@@ -305,7 +439,42 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
     const renderContent = () => {
         switch (activeTab) {
             case 'overview':
-                return <MerchantOverview user={user} stats={stats} />;
+                return (
+                    <View style={{ flex: 1 }}>
+                        {(() => {
+                            if (profileData.subscriptionExpiryDate) {
+                                const expiry = new Date(profileData.subscriptionExpiryDate);
+                                const today = new Date();
+                                const diffTime = expiry.getTime() - today.getTime();
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                const isExpired = profileData.subscriptionStatus === 'expired';
+
+                                if (isExpired || (diffDays <= 7 && diffDays > 0)) {
+                                    return (
+                                        <View style={{ backgroundColor: isExpired ? '#fee2e2' : '#fef3c7', padding: 12, margin: 16, marginBottom: 0, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ fontWeight: 'bold', color: isExpired ? COLORS.danger : COLORS.warning }}>
+                                                    {isExpired ? 'In Grace Period' : 'Expiring Soon'}
+                                                </Text>
+                                                <Text style={{ fontSize: 12, color: COLORS.secondary }}>
+                                                    {isExpired ? 'Renew immediately.' : `Expires in ${diffDays} days.`}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={{ backgroundColor: isExpired ? COLORS.danger : COLORS.warning, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+                                                onPress={() => setShowRenewalModal(true)}
+                                            >
+                                                <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Renew</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    );
+                                }
+                            }
+                            return null;
+                        })()}
+                        <MerchantOverview user={user} stats={stats} />
+                    </View>
+                );
             case 'plans':
                 return (
                     <MerchantPlans
@@ -316,7 +485,7 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                     />
                 );
             case 'subscribers':
-                return <MerchantUsers subscribers={subscribers} />;
+                return <MerchantUsers user={user} />;
             case 'profile':
                 return (
                     <MerchantProfile
@@ -343,63 +512,78 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerRow}>
-                    <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
-                    <Text style={styles.appTitle}>A U R U M</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                    <GoldTicker />
-                </View>
-            </View>
-
-            {/* Content */}
-            <View style={styles.mainContent}>
-                {renderContent()}
-            </View>
-
-            {/* Bottom Nav */}
-            <BottomNav activeTab={activeTab} onTabChange={setActiveTab} tabs={merchantTabs} />
-
-            {/* Logout Modal */}
-            <Modal visible={showLogoutModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Icon name="exclamation-triangle" size={40} color={COLORS.warning} style={{ marginBottom: 15 }} />
-                        <Text style={styles.modalTitle}>Confirm Logout</Text>
-                        <Text style={styles.modalText}>Are you sure you want to log out?</Text>
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowLogoutModal(false)}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onLogout}>
-                                <Text style={styles.confirmButtonText}>Logout</Text>
-                            </TouchableOpacity>
-                        </View>
+        <LinearGradient
+            colors={['#ffffffff', '#ffffffff']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.container}
+        >
+            <SafeAreaView style={{ flex: 1 }}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerRow}>
+                        <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
+                        <Text style={styles.appTitle}>A U R U M</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                        <GoldTicker />
                     </View>
                 </View>
-            </Modal>
-        </SafeAreaView>
+
+                {/* Content */}
+                <View style={styles.mainContent}>
+                    {renderContent()}
+                </View>
+
+                {/* Bottom Nav */}
+                <BottomNav activeTab={activeTab} onTabChange={setActiveTab} tabs={merchantTabs} />
+
+                {/* Logout Modal */}
+                <Modal visible={showLogoutModal} transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <Icon name="exclamation-triangle" size={40} color={COLORS.warning} style={{ marginBottom: 15 }} />
+                            <Text style={styles.modalTitle}>Confirm Logout</Text>
+                            <Text style={styles.modalText}>Are you sure you want to log out?</Text>
+                            <View style={styles.modalButtons}>
+                                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowLogoutModal(false)}>
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onLogout}>
+                                    <Text style={styles.confirmButtonText}>Logout</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </SafeAreaView>
+            <CustomAlert
+                visible={alertConfig.visible}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                buttons={alertConfig.buttons}
+                onClose={hideAlert}
+            />
+        </LinearGradient>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
         marginTop: 35,
     },
     header: {
+        marginTop: 10,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 15,
+        // paddingVertical: 2,
         borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        backgroundColor: '#fff',
+        borderBottomColor: 'rgba(240, 240, 240, 0.5)',
+        backgroundColor: '#ebdc87',
     },
     appTitle: {
         fontSize: 20,
@@ -409,7 +593,7 @@ const styles = StyleSheet.create({
     },
     mainContent: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: 'transparent',
     },
     headerRow: {
         flexDirection: 'row',

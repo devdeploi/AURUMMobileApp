@@ -16,7 +16,7 @@ const BottomNav = ({ activeTab, onTabChange, tabs }) => {
                     <Icon
                         name={tab.icon}
                         size={20}
-                        color={activeTab === tab.id ? COLORS.primary : COLORS.secondary}
+                        color={activeTab === tab.id ? COLORS.primary : COLORS.dark}
                         style={{ marginBottom: 4 }}
                     />
                     <Text style={[styles.label, activeTab === tab.id && styles.activeLabel]}>
@@ -31,9 +31,9 @@ const BottomNav = ({ activeTab, onTabChange, tabs }) => {
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        backgroundColor: '#fff',
+        backgroundColor: '#ebdc87',
         borderTopWidth: 1,
-        borderTopColor: '#eee',
+        borderTopColor: '#ebdc87',
         paddingBottom: 20, // Safe area padding
         paddingTop: 10,
         justifyContent: 'space-around',

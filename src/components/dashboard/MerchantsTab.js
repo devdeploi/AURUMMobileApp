@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
     View,
     Text,
@@ -7,36 +7,13 @@ import {
     TouchableOpacity,
     FlatList,
     ActivityIndicator,
-    Image,
-    Animated
+    Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
+import { SkeletonItem } from '../SkeletonLoader';
 
-const SkeletonItem = () => {
-    const opacity = useRef(new Animated.Value(0.3)).current;
-
-    useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(opacity, { toValue: 1, duration: 1000, useNativeDriver: true }),
-                Animated.timing(opacity, { toValue: 0.3, duration: 1000, useNativeDriver: true })
-            ])
-        ).start();
-    }, [opacity]);
-
-    return (
-        <View style={styles.skeletonCard}>
-            <Animated.View style={[styles.skeletonImage, { opacity }]} />
-            <View style={styles.skeletonContent}>
-                <Animated.View style={[styles.skeletonLine, { width: '70%', height: 16, marginBottom: 8, opacity }]} />
-                <Animated.View style={[styles.skeletonLine, { width: '50%', height: 12, marginBottom: 6, opacity }]} />
-                <Animated.View style={[styles.skeletonLine, { width: '30%', height: 10, opacity }]} />
-            </View>
-        </View>
-    );
-};
 
 const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMore }) => {
     // Filter only approved merchants
@@ -50,7 +27,16 @@ const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMor
                     <Text style={styles.sectionSubtitle}>{approvedMerchants.length} merchants nearby</Text>
                 </View>
                 <View style={styles.skeletonList}>
-                    {[1, 2, 3].map(i => <SkeletonItem key={i} />)}
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <View key={i} style={styles.skeletonCard}>
+                            <SkeletonItem width={64} height={64} borderRadius={12} style={{ marginRight: 16 }} />
+                            <View style={{ flex: 1 }}>
+                                <SkeletonItem width="70%" height={16} style={{ marginBottom: 8 }} />
+                                <SkeletonItem width="50%" height={12} style={{ marginBottom: 6 }} />
+                                <SkeletonItem width="30%" height={10} />
+                            </View>
+                        </View>
+                    ))}
                 </View>
             </View>
         );
@@ -341,20 +327,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#F5F7FA',
-    },
-    skeletonImage: {
-        width: 64,
-        height: 64,
-        borderRadius: 12,
-        backgroundColor: '#F0F4F8',
-        marginRight: 16,
-    },
-    skeletonContent: {
-        flex: 1,
-    },
-    skeletonLine: {
-        backgroundColor: '#F0F4F8',
-        borderRadius: 4,
     },
 });
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-native/no-inline-styles */
 
 import React, { useState } from 'react';
 import { StatusBar, View } from 'react-native';
@@ -5,12 +6,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 // Screens
+// Screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import MerchantDashboardScreen from './src/screens/MerchantDashboardScreen';
 import UserDashboardScreen from './src/screens/UserDashboardScreen';
 import MerchantDetailsScreen from './src/screens/MerchantDetailsScreen';
+import IntroScreen from './src/screens/IntroScreen';
 import { COLORS } from './src/styles/theme';
+import FCMService from './src/services/FCMService';
 
 
 type Role = 'merchant' | 'user';
@@ -27,12 +31,25 @@ interface UserData {
 
 function App() {
   /* ... inside App component ... */
-  const [currentScreen, setCurrentScreen] = useState<string>('LOGIN'); // LOGIN, REGISTER, MERCHANT_DASHBOARD, USER_DASHBOARD, MERCHANT_DETAILS
+  const [currentScreen, setCurrentScreen] = useState<string>('INTRO'); // INTRO, LOGIN, REGISTER, MERCHANT_DASHBOARD, USER_DASHBOARD, MERCHANT_DETAILS
   const [user, setUser] = useState<UserData | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
   const [dashboardStartTab, setDashboardStartTab] = useState<string>('dashboard');
 
   // ... handlers ...
+
+  React.useEffect(() => {
+    const initNotifications = async () => {
+      await FCMService.requestUserPermission();
+      await FCMService.createDefaultChannel();
+      await FCMService.checkInitialNotification();
+    };
+
+    initNotifications();
+    const unsubscribe = FCMService.registerForegroundHandler();
+
+    return unsubscribe;
+  }, []);
 
   const handleLogin = (role: string, userData: UserData) => {
     setUser(userData);
@@ -78,6 +95,8 @@ function App() {
 
   const renderScreen = () => {
     switch (currentScreen) {
+      case 'INTRO':
+        return <IntroScreen onFinish={() => setCurrentScreen('LOGIN')} />;
       case 'LOGIN':
         return (
           <LoginScreen
@@ -113,6 +132,7 @@ function App() {
           <MerchantDetailsScreen
             merchant={selectedMerchant}
             onBack={handleBackFromMerchantDetails}
+            user={user}
           />
         );
       default:
@@ -121,7 +141,7 @@ function App() {
   };
 
 
-  const isLoginOrRegister = currentScreen === 'LOGIN' || currentScreen === 'REGISTER';
+  const isLoginOrRegister = currentScreen === 'LOGIN' || currentScreen === 'REGISTER' || currentScreen === 'INTRO';
 
   return (
     <SafeAreaProvider>

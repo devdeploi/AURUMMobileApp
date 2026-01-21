@@ -6,7 +6,7 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
+
     StyleSheet,
     Modal,
     TextInput
@@ -17,6 +17,7 @@ import Slider from '@react-native-community/slider';
 import axios from 'axios';
 import { APIURL } from '../constants/api';
 import Toast from 'react-native-toast-message';
+import CustomAlert from './CustomAlert';
 
 const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
     // Pagination State
@@ -33,6 +34,19 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
     // View Details State
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
+
+    // Custom Alert State
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+        buttons: []
+    });
+
+    const hideAlert = () => {
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+    };
 
     // Derived State
     const isBankVerified = user?.bankDetails?.verificationStatus === 'verified';
@@ -236,9 +250,9 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
                             resetForm();
                             setShowCreatePlanModal(true);
                         } else if (!isBankVerified) {
-                            Alert.alert("Restriction", "Please verify your bank account first.");
+                            setAlertConfig({ visible: true, title: "Restriction", message: "Please verify your bank account first.", type: 'warning' });
                         } else {
-                            Alert.alert("Limit Reached", "You have reached your plan limit. Upgrade to Premium for more.");
+                            setAlertConfig({ visible: true, title: "Limit Reached", message: "You have reached your plan limit. Upgrade to Premium for more.", type: 'error' });
                         }
                     }}
                     activeOpacity={canCreatePlan ? 0.7 : 1}
@@ -377,6 +391,25 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
                 </Modal>
             </ScrollView>
             <Toast />
+            <CustomAlert
+                visible={alertConfig.visible}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                buttons={alertConfig.buttons}
+                onClose={hideAlert}
+            />
+
+            {/* Processing Modal */}
+            <Modal transparent={true} visible={creatingPlan} animationType="fade">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: 'white', padding: 25, borderRadius: 15, alignItems: 'center', elevation: 5 }}>
+                        <ActivityIndicator size="large" color="#915200" />
+                        <Text style={{ marginTop: 15, fontWeight: 'bold', fontSize: 16, color: '#915200' }}>Processing...</Text>
+                        <Text style={{ marginTop: 5, fontSize: 12, color: '#666' }}>Creating/Updating Plan...</Text>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -407,7 +440,7 @@ const styles = StyleSheet.create({
         fontWeight: '600'
     },
     planCard: {
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         borderRadius: 16,
         padding: 16,
         marginBottom: 15,
@@ -417,7 +450,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 3,
         borderWidth: 1,
-        borderColor: '#f0f0f0'
+        borderColor: COLORS.glassBorder
     },
     planHeader: {
         flexDirection: 'row',
@@ -485,7 +518,7 @@ const styles = StyleSheet.create({
     },
     viewButton: {
         borderColor: COLORS.primary,
-        backgroundColor: '#fff'
+        backgroundColor: COLORS.glass
     },
     viewButtonText: {
         color: COLORS.primary,
@@ -508,7 +541,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.glass,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: COLORS.primary,
