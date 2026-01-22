@@ -7,10 +7,11 @@ import {
     TouchableOpacity,
     StyleSheet,
     ScrollView,
-    SafeAreaView,
+    // SafeAreaView,
     ActivityIndicator,
     Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import { COLORS } from '../styles/theme';

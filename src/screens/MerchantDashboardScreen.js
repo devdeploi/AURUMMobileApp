@@ -9,7 +9,7 @@ import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
+    // SafeAreaView, // Removed from react-native
     TouchableOpacity,
     Modal,
     ActivityIndicator,
@@ -17,6 +17,7 @@ import {
     ScrollView,
     Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import axios from 'axios';
@@ -518,7 +519,7 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
             end={{ x: 1, y: 1 }}
             style={styles.container}
         >
-            <SafeAreaView style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.headerRow}>
@@ -572,7 +573,7 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        marginTop: 35,
+        // marginTop: 35, // Removed hardcoded margin
     },
     header: {
         marginTop: 10,

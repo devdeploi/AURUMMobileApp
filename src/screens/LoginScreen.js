@@ -7,7 +7,7 @@ import {
     TouchableOpacity,
     StyleSheet,
     ScrollView,
-    SafeAreaView,
+    // SafeAreaView,
 
     ActivityIndicator,
     Image,
@@ -16,6 +16,7 @@ import {
     Platform,
     UIManager
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import LinearGradient from 'react-native-linear-gradient';

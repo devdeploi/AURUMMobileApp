@@ -8,11 +8,12 @@ import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
+    // SafeAreaView,
     TouchableOpacity,
     Modal,
     Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
 import { COLORS } from '../styles/theme';
@@ -206,7 +207,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
             end={{ x: 1, y: 1 }}
             style={styles.container}
         >
-            <SafeAreaView style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 <View style={styles.header}>
                     <View style={styles.headerRow}>
                         <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
@@ -257,7 +258,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        marginTop: 35
+        // marginTop: 35
     },
     header: {
         marginTop: 10,

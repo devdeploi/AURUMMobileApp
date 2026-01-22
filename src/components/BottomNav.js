@@ -4,9 +4,13 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const BottomNav = ({ activeTab, onTabChange, tabs }) => {
+    const insets = useSafeAreaInsets();
+
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             {tabs.map((tab) => (
                 <TouchableOpacity
                     key={tab.id}
@@ -34,7 +38,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#ebdc87',
         borderTopWidth: 1,
         borderTopColor: '#ebdc87',
-        paddingBottom: 20, // Safe area padding
+        // paddingBottom removed from here
         paddingTop: 10,
         justifyContent: 'space-around',
     },

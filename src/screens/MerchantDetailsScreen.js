@@ -19,7 +19,7 @@ import {
     UIManager
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -350,21 +350,23 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
             colors={['#ebdc87', '#f3e9bd']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={[styles.container, { paddingTop: insets.top }]}
+            style={styles.container}
         >
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
 
-            {renderHeader()}
-            {renderTabs()}
+                {renderHeader()}
+                {renderTabs()}
 
-            <ScrollView
-                style={styles.content}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-            >
-                {activeTab === 'plans' ? renderPlans() : renderAbout()}
-            </ScrollView>
+                <ScrollView
+                    style={styles.content}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    }
+                >
+                    {activeTab === 'plans' ? renderPlans() : renderAbout()}
+                </ScrollView>
+            </SafeAreaView>
             <CustomAlert
                 visible={alertConfig.visible}
                 title={alertConfig.title}

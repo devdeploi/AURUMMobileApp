@@ -299,9 +299,16 @@ const MerchantUsers = ({ user }) => {
             <View style={styles.subscriberCard}>
                 <View style={styles.subHeader}>
                     <View style={styles.userInfo}>
-                        <View style={styles.initialAvatar}>
-                            <Text style={styles.initialText}>{item.user.name?.charAt(0).toUpperCase()}</Text>
-                        </View>
+                        {item.user.profileImage ? (
+                            <Image
+                                source={{ uri: `${BASE_URL}${item.user.profileImage}` }}
+                                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee' }}
+                            />
+                        ) : (
+                            <View style={styles.initialAvatar}>
+                                <Text style={styles.initialText}>{item.user.name?.charAt(0).toUpperCase()}</Text>
+                            </View>
+                        )}
                         <View style={{ marginLeft: 10 }}>
                             <Text style={styles.userName}>{item.user.name}</Text>
                             <Text style={styles.userPhone}>{item.user.phone}</Text>
