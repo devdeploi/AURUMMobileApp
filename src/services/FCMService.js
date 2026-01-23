@@ -4,22 +4,40 @@ import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import axios from 'axios';
 import { APIURL } from '../constants/api';
 import { COLORS } from '../styles/theme';
+import { Platform, PermissionsAndroid } from 'react-native';
 
 class FCMService {
     async requestUserPermission() {
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-            authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-            authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-        if (enabled) {
-            console.log('Authorization status:', authStatus);
-            this.getFCMToken();
+        if (Platform.OS === 'ios') {
+            const authStatus = await messaging().requestPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            if (enabled) {
+                console.log('Authorization status:', authStatus);
+            }
+        } else if (Platform.OS === 'android' && Platform.Version >= 33) {
+            try {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+                );
+                if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+                    console.log('Android Notification Permission Granted');
+                } else {
+                    console.log('Android Notification Permission Denied');
+                }
+            } catch (err) {
+                console.warn(err);
+            }
         }
     }
 
     async getFCMToken() {
         try {
+            if (Platform.OS === 'ios') {
+                await messaging().registerDeviceForRemoteMessages();
+            }
+
             const token = await messaging().getToken();
             console.log('FCM Token:', token);
             return token;
@@ -97,8 +115,10 @@ class FCMService {
     // Register foreground handler
     registerForegroundHandler() {
         return messaging().onMessage(async remoteMessage => {
-            console.log('A new FCM message arrived!', remoteMessage);
-            await this.onMessageReceived(remoteMessage);
+            if (Platform.OS === 'android') {
+                await this.onMessageReceived(remoteMessage);
+            }
+            // iOS: do nothing, let the OS handle it
         });
     }
 

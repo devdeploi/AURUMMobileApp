@@ -35,7 +35,7 @@ import MerchantProfile from '../components/MerchantProfile';
 import SubscriptionExpired from '../components/SubscriptionExpired';
 import CustomAlert from '../components/CustomAlert';
 
-const MerchantDashboardScreen = ({ user, onLogout }) => {
+const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resumeAds }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [blockingRenewal, setBlockingRenewal] = useState(false);
@@ -128,314 +128,328 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
         }
     }, [user]);
 
+    const fetchProfile = useCallback(async () => {
+        if (!user) return;
+        try {
+            const token = user.token;
+            const id = user._id || user.id;
+            const { data } = await axios.get(`${APIURL}/merchants/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            console.log("Full DB Profile:", data);
+            // Ensure nested objects exist
+            const safeData = {
+                ...data,
+                bankDetails: data.bankDetails || { accountNumber: '', ifscCode: '', accountHolderName: '' },
+                shopImages: data.shopImages || []
+            };
+            setProfileData(prev => ({ ...prev, ...safeData }));
+        } catch (error) {
+            console.error("Error fetching profile", error);
+        }
+    }, [user]);
+
     // Fetch Stats & Plans
     useEffect(() => {
         if (activeTab === 'overview' || activeTab === 'plans' || activeTab === 'subscribers') {
             fetchPlans();
         }
 
-        const fetchProfile = async () => {
-            if (!user) return;
-            try {
-                const token = user.token;
-                const id = user._id || user.id;
-                const { data } = await axios.get(`${APIURL}/merchants/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                console.log("Full DB Profile:", data);
-                // Ensure nested objects exist
-                const safeData = {
-                    ...data,
-                    bankDetails: data.bankDetails || { accountNumber: '', ifscCode: '', accountHolderName: '' },
-                    shopImages: data.shopImages || []
-                };
-                setProfileData(prev => ({ ...prev, ...safeData }));
-            } catch (error) {
-                console.error("Error fetching profile", error);
-            }
-        };
-
         if (user) {
             fetchProfile();
         }
-    }, [user, activeTab, fetchPlans]);
+    }, [user, activeTab, fetchPlans, fetchProfile]);
 
-    const handleUpdateProfile = async () => {
-        setUpdatingProfile(true);
+    // Manage Ads based on active tab
+    useEffect(() => {
+        if (activeTab === 'profile') {
+            if (pauseAds) pauseAds();
+        } else {
+            if (resumeAds) resumeAds();
+        }
+    }, [activeTab, pauseAds, resumeAds]);
+
+    const handleUpdateProfile = async (updatedData) => {
         try {
+            // Guard against event objects being passed directly
+            if (updatedData && updatedData.nativeEvent) {
+                console.warn("handleUpdateProfile received an event object unexpectedly.");
+                setAlertConfig({ visible: true, title: 'Error', message: 'Invalid data submitted', type: 'error' });
+                return;
+            }
+
+            setUpdatingProfile(true);
             const token = user.token;
             const id = user._id || user.id;
-            await axios.put(`${APIURL}/merchants/${id}`, profileData, {
+
+            // Sanitize payload to avoid circular structures and extra fields
+            const payload = {
+                name: updatedData.name,
+                address: updatedData.address,
+                gstin: updatedData.gstin,
+                bankDetails: updatedData.bankDetails,
+                shopImages: updatedData.shopImages,
+                // Add validation or other fields as necessary
+                phone: updatedData.phone, // Usually read-only but might need ensuring
+                email: updatedData.email  // Usually read-only
+            };
+
+            const { data } = await axios.put(`${APIURL}/merchants/${id}`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setAlertConfig({ visible: true, title: 'Success', message: 'Profile updated successfully', type: 'success' });
+
+            const safeData = {
+                ...data,
+                bankDetails: data.bankDetails || { accountNumber: '', ifscCode: '', accountHolderName: '' },
+                shopImages: data.shopImages || []
+            };
+
+            setProfileData(prev => ({ ...prev, ...safeData }));
             setIsEditingProfile(false);
+            setAlertConfig({ visible: true, title: 'Success', message: 'Profile updated successfully', type: 'success' });
         } catch (error) {
-            console.error(error);
+            console.error("Update profile error", error);
+            // Log specifically if cyclic
+            if (error.message && error.message.includes('cyclic')) {
+                console.error("Cyclic structure detected in payload", updatedData);
+            }
             setAlertConfig({ visible: true, title: 'Error', message: 'Failed to update profile', type: 'error' });
         } finally {
             setUpdatingProfile(false);
         }
     };
 
-    // Check for Expiry
-    if (profileData.subscriptionExpiryDate) {
-        const expiry = new Date(profileData.subscriptionExpiryDate);
-        const now = new Date();
-        const diffTime = now.getTime() - expiry.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-
-        if (diffDays > 1 && profileData.subscriptionStatus === 'expired') {
-            if (blockingRenewal) {
-                return (
-                    <LinearGradient
-                        colors={['#ebdc87', '#f3e9bd']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.container}
-                    >
-                        <SafeAreaView style={{ flex: 1 }}>
-                            <View style={{ flex: 1, padding: 20 }}>
-                                <TouchableOpacity style={{ marginBottom: 20 }} onPress={() => setBlockingRenewal(false)}>
-                                    <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Back</Text>
-                                </TouchableOpacity>
-                                <SubscriptionExpired
-                                    user={user}
-                                    onRenew={(updatedUser) => {
-                                        setProfileData(prev => ({ ...prev, ...updatedUser }));
-                                        setBlockingRenewal(false);
-                                    }}
-                                    existingPlanCount={stats.activePlans}
-                                    plans={plans}
-                                    onRefreshPlans={fetchPlans}
-                                />
-                            </View>
-                        </SafeAreaView>
-                    </LinearGradient>
-                );
-            }
-            return (
-                <LinearGradient
-                    colors={['#ebdc87', '#f3e9bd']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.container}
-                >
-                    <SafeAreaView style={{ flex: 1 }}>
-                        <View style={styles.modalContent}>
-                            <Icon name="lock" size={50} color={COLORS.danger} style={{ marginBottom: 20 }} />
-                            <Text style={styles.modalTitle}>Subscription Expired</Text>
-                            <Text style={styles.modalText}>Your grace period has ended. Please renew to continue.</Text>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.confirmButton, { width: '100%', marginBottom: 15 }]}
-                                onPress={() => setBlockingRenewal(true)}
-                            >
-                                <Text style={styles.confirmButtonText}>Renew Now</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={onLogout}>
-                                <Text style={styles.logoutText}>Logout</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </SafeAreaView>
-                </LinearGradient>
-            );
-        }
-    }
-
-    if (showRenewalModal) {
-        return (
-            <LinearGradient
-                colors={['#ebdc87', '#f3e9bd']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.container}
-            >
-                <SafeAreaView style={{ flex: 1 }}>
-                    <View style={{ flex: 1 }}>
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={() => setShowRenewalModal(false)}>
-                                <Icon name="arrow-left" size={20} color={COLORS.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.appTitle}>Renewal</Text>
-                            <View style={{ width: 20 }} />
-                        </View>
-                        <SubscriptionExpired
-                            user={user}
-                            onRenew={(updatedUser) => {
-                                setProfileData(prev => ({ ...prev, ...updatedUser }));
-                                setShowRenewalModal(false);
-                            }}
-                            existingPlanCount={stats.activePlans}
-                            plans={plans}
-                            onRefreshPlans={fetchPlans}
-                        />
-                    </View>
-                </SafeAreaView>
-            </LinearGradient>
-        );
-    }
-
-    // --- NEW HELPER FUNCTIONS ---
-
     const verifyBankAccount = async () => {
-        const { accountNumber, ifscCode, accountHolderName } = profileData.bankDetails || {};
-        if (!accountNumber || !ifscCode) {
-            setAlertConfig({ visible: true, title: 'Missing Info', message: 'Please enter Account Number and IFSC code.', type: 'warning' });
-            return;
-        }
-
+        // Mock verification for now or implement API call if available
         setVerifyingBank(true);
-        try {
-            const { data } = await axios.post(`${APIURL}/kyc/verify-bank`, { accountNumber, ifscCode, accountHolderName });
-            if (data.status === 'success') {
-                const updatedBankDetails = {
-                    ...profileData.bankDetails,
-                    verifiedName: data.data.verifiedName,
-                    bankName: data.data.bankName,
-                    branchName: data.data.branchName,
-                    verificationStatus: 'verified'
-                };
-                setProfileData(prev => ({ ...prev, bankDetails: updatedBankDetails }));
-                setAlertConfig({ visible: true, title: 'Success', message: `Bank Verified: ${data.data.verifiedName}`, type: 'success' });
-            } else {
-                setAlertConfig({ visible: true, title: 'Failed', message: 'Bank Verification Failed', type: 'error' });
-            }
-        } catch (error) {
-            console.error(error);
-            setAlertConfig({ visible: true, title: 'Error', message: error.response?.data?.message || "Bank Verification Failed", type: 'error' });
-        } finally {
+        setTimeout(() => {
             setVerifyingBank(false);
-        }
+            setAlertConfig({ visible: true, title: 'Verification', message: 'Bank details submission logic to be implemented.', type: 'info' });
+        }, 1500);
     };
 
-    const handleImageUpload = async (type) => { // type: 'addressProof' or 'shopImage'
-        const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+    const handleImageUpload = async (docType) => {
+        // Launch image picker
+        const options = {
+            mediaType: 'photo',
+            quality: 0.8,
+            maxWidth: 1200,
+            maxHeight: 1200,
+        };
 
-        if (result.didCancel || !result.assets || result.assets.length === 0) return;
-
-        const asset = result.assets[0];
-        const formData = new FormData();
-        formData.append('image', {
-            uri: asset.uri,
-            type: asset.type,
-            name: asset.fileName || 'upload.jpg',
-        });
-
-        setUploadingDoc(true);
         try {
+            const response = await launchImageLibrary(options);
+
+            // Handle cancellation
+            if (response.didCancel) {
+                console.log('User cancelled image picker');
+                return;
+            }
+
+            // Handle errors
+            if (response.errorCode) {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Error',
+                    message: response.errorMessage || 'Failed to pick image',
+                    type: 'error'
+                });
+                return;
+            }
+
+            // Check if we have assets
+            const assets = response.assets;
+            if (!assets || assets.length === 0) {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Error',
+                    message: 'No image selected',
+                    type: 'error'
+                });
+                return;
+            }
+
+            const imageFile = assets[0];
+            setUploadingDoc(true);
             const token = user.token;
-            const { data: imagePath } = await axios.post(`${APIURL}/upload`, formData, {
+
+            // 1. Upload to generic generic endpoint
+            const uploadEndpoint = `${APIURL}/upload`;
+            const uploadFormData = new FormData();
+            uploadFormData.append('image', {
+                uri: imageFile.uri,
+                type: imageFile.type || 'image/jpeg',
+                name: imageFile.fileName || `upload_${Date.now()}.jpg`,
+            });
+
+            const { data: imagePath } = await axios.post(uploadEndpoint, uploadFormData, {
                 headers: {
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}`
                 }
             });
 
-            if (type === 'addressProof') {
-                setProfileData(prev => ({ ...prev, addressProof: imagePath }));
-            } else if (type === 'shopImage') {
-                setProfileData(prev => ({
-                    ...prev,
-                    shopImages: [...(prev.shopImages || []), imagePath]
-                }));
-            }
-            setAlertConfig({ visible: true, title: 'Success', message: 'Variable uploaded successfully', type: 'success' });
+            // 2. Update LOCAL STATE only (Preview)
+            // We do NOT call handleUpdateProfile here anymore.
+            // The user must click "Save Changes" to persist this.
+            setProfileData(prev => {
+                if (docType === 'addressProof') {
+                    return { ...prev, addressProof: imagePath };
+                } else {
+                    const currentImages = prev.shopImages || [];
+                    return { ...prev, shopImages: [...currentImages, imagePath] };
+                }
+            });
+
+            // No fetchProfile() here because we want to keep the local change until saved
+
+            setAlertConfig({
+                visible: true,
+                title: 'Image Uploaded',
+                message: 'Image uploaded. Please tap "Save Changes" to apply.',
+                type: 'success'
+            });
 
         } catch (error) {
-            console.error("Upload failed", error);
-            setAlertConfig({ visible: true, title: 'Error', message: 'Image upload failed', type: 'error' });
+            console.error("Image upload error", error);
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'Failed to upload image',
+                type: 'error'
+            });
         } finally {
             setUploadingDoc(false);
         }
     };
 
-    const removeShopImage = (index) => {
-        const newImages = [...(profileData.shopImages || [])];
-        newImages.splice(index, 1);
-        setProfileData(prev => ({ ...prev, shopImages: newImages }));
-    };
-
-    const handleUpgradePayment = async (billingCycle = 'monthly') => {
-        if (profileData.plan === 'Premium') {
-            setAlertConfig({ visible: true, title: 'Info', message: 'You are already a Premium member!', type: 'info' });
-            return;
+    const removeShopImage = async (indexOrUrl) => {
+        // Implement removal logic - Update LOCAL state only
+        const currentImages = profileData.shopImages || [];
+        let newImages;
+        if (typeof indexOrUrl === 'number') {
+            newImages = currentImages.filter((_, i) => i !== indexOrUrl);
+        } else {
+            newImages = currentImages.filter(url => url !== indexOrUrl);
         }
 
-        console.log('Initiating upgrade payment...', billingCycle);
+        setProfileData(prev => ({ ...prev, shopImages: newImages }));
 
+        // Optional: Show specific alert or just let them see it removed
+    };
+
+    const handleUpgradePayment = async (billingCycle) => {
+        console.log("Detailed Log: Starting handleUpgradePayment with billingCycle:", billingCycle);
         try {
             // 1. Create Order
-            console.log('Creating subscription order...');
-            const amount = billingCycle === 'yearly' ? 50000 : 5000;
-
-            const { data: order } = await axios.post(`${APIURL}/payments/create-subscription-order`, {
-                amount: amount,
-                billingCycle: billingCycle
-            });
-            console.log('Order created:', order);
-
-
-            // 2. Open Razorpay
-            const options = {
-                description: `Upgrade to Premium Plan (${billingCycle})`,
-                currency: order.currency,
-                key: 'rzp_test_S6RoMCiZCpsLo7',
-                amount: order.amount,
-                name: 'Aurum Jewellery',
-                order_id: order.id,
-                theme: { color: COLORS.primary }
+            const token = user.token;
+            const config = {
+                headers: { Authorization: `Bearer ${token}` },
             };
 
-            console.log('Opening Razorpay options:', options);
-            RazorpayCheckout.open(options).then(async (data) => {
-                // handle success
-                console.log('Razorpay success:', data);
-                try {
-                    console.log('Verifying payment...');
+            console.log("Detailed Log: Calling create-renewal-order at:", `${APIURL}/merchants/create-renewal-order`);
 
-                    const verifyRes = await axios.post(`${APIURL}/payments/verify-subscription-payment`, {
-                        razorpay_order_id: data.razorpay_order_id,
-                        razorpay_payment_id: data.razorpay_payment_id,
-                        razorpay_signature: data.razorpay_signature,
-                        billingCycle: billingCycle
-                    });
-                    console.log('Verification response:', verifyRes.data);
+            const response = await axios.post(`${APIURL}/merchants/create-renewal-order`, {
+                plan: 'Premium',
+                billingCycle
+            }, config);
 
-                    if (verifyRes.data.status === 'success') {
+            console.log("Detailed Log: create-renewal-order response received:", JSON.stringify(response.data));
 
-                        const token = user.token;
-                        const id = user._id || user.id;
-                        // Update Plan on Backend
-                        const updatePayload = {
-                            ...profileData,
-                            plan: 'Premium',
-                            paymentId: data.razorpay_payment_id,
-                            billingCycle: billingCycle
-                        };
-                        const { data: updatedMerchant } = await axios.put(`${APIURL}/merchants/${id}`, updatePayload, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
+            const { data } = response;
+            const { order, keyId } = data;
 
-                        setProfileData(prev => ({ ...prev, ...updatedMerchant }));
-                        setAlertConfig({ visible: true, title: 'Success', message: 'Welcome to Premium Plan!', type: 'success' });
-                    }
-                } catch (err) {
-                    setAlertConfig({ visible: true, title: 'Error', message: 'Payment Verification Failed', type: 'error' });
+            if (!order || !order.id) {
+                console.error("Detailed Log: Critical Error - Invalid order received:", order);
+                setAlertConfig({ visible: true, title: "Error", message: "Invalid order data received from server. Please contact support.", type: 'error' });
+                return;
+            }
+
+            // 2. Open Razorpay
+            // Ensure amount is an integer (paise) and currency is set
+            const options = {
+                description: `Upgrade to Premium Plan (${billingCycle})`,
+                image: 'https://aurum-assets.s3.ap-south-1.amazonaws.com/aurum.png', // Logo
+                currency: order.currency || 'INR',
+                key: keyId || 'rzp_test_S6RoMCiZCpsLo7', // Fallback key if server doesn't send one
+                amount: order.amount, // Amount in paise
+                name: 'AURUM',
+                order_id: order.id,
+                theme: { color: COLORS.primary },
+                prefill: {
+                    email: user.email,
+                    contact: user.phone,
+                    name: user.name
                 }
-            }).catch((error) => {
-                // handle failure
-                console.log('Razorpay failure:', error);
-                console.log(error);
-                setAlertConfig({ visible: true, title: 'Error', message: `Payment Failed: ${error.description || 'Unknown error'}`, type: 'error' });
-            });
+            };
+
+            console.log("Detailed Log: Opening Razorpay with options:", JSON.stringify(options));
+
+            // Add delay to allow modal to close fully
+            setTimeout(() => {
+                try {
+                    RazorpayCheckout.open(options).then(async (rzpData) => {
+                        console.log("Detailed Log: Razorpay success data:", rzpData);
+                        // handle success
+                        try {
+                            // 3. Verify Payment
+                            const verifyPayload = {
+                                razorpay_order_id: rzpData.razorpay_order_id,
+                                razorpay_payment_id: rzpData.razorpay_payment_id,
+                                razorpay_signature: rzpData.razorpay_signature,
+                                plan: 'Premium',
+                                billingCycle
+                            };
+
+                            console.log("Detailed Log: Verifying payment with payload:", verifyPayload);
+
+                            const verifyRes = await axios.post(`${APIURL}/merchants/verify-renewal`, verifyPayload, config);
+                            console.log("Detailed Log: Verification response:", verifyRes.data);
+
+                            if (verifyRes.data.success) {
+                                setAlertConfig({ visible: true, title: "Success", message: "Plan upgraded to Premium!", type: 'success' });
+                                if (onUserUpdate) {
+                                    onUserUpdate({ ...user, plan: 'Premium', ...profileData, plan: 'Premium' });
+                                }
+
+                                fetchProfile(); // Refresh profile to show new plan
+                                fetchPlans();
+                            } else {
+                                console.warn("Detailed Log: Payment verification returned success=false");
+                                setAlertConfig({ visible: true, title: "Error", message: "Payment verification failed on server", type: 'error' });
+                            }
+                        } catch (err) {
+                            console.error("Detailed Log: Verification error:", err);
+                            setAlertConfig({ visible: true, title: "Error", message: "Payment verification failed due to network or server error", type: 'error' });
+                        }
+                    }).catch((error) => {
+                        // handle failure
+                        console.error("Detailed Log: Razorpay Checkout error:", error);
+                        let errorMsg = 'Payment Cancelled or Failed';
+                        if (error.description) errorMsg = error.description;
+                        else if (error.error && error.error.description) errorMsg = error.error.description;
+
+                        if (error.code && error.code !== 0) {
+                            setAlertConfig({ visible: true, title: "Payment Failed", message: errorMsg, type: 'error' });
+                        }
+                    });
+                } catch (checkoutError) {
+                    console.error("Detailed Log: Synchronous error opening Razorpay:", checkoutError);
+                    setAlertConfig({ visible: true, title: "Error", message: "Could not open payment gateway. Please check your app configuration.", type: 'error' });
+                }
+            }, 600);
 
 
-        } catch (error) {
-            console.error(error);
-            setAlertConfig({ visible: true, title: 'Error', message: 'Failed to initiate payment', type: 'error' });
+        } catch (err) {
+            console.error("Detailed Log: handleUpgradePayment outer error:", err);
+            const errMsg = err.response?.data?.message || err.message || 'Upgrade initiation failed.';
+            setAlertConfig({ visible: true, title: "Error", message: errMsg, type: 'error' });
         }
     };
 
+    const handleRefresh = useCallback(async () => {
+        await Promise.all([fetchPlans(), fetchProfile()]);
+    }, [fetchPlans, fetchProfile]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -473,7 +487,13 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                             }
                             return null;
                         })()}
-                        <MerchantOverview user={user} stats={stats} />
+                        <MerchantOverview
+                            user={{ ...user, ...profileData }}
+                            stats={stats}
+                            plans={plans}
+                            refreshing={loadingPlans}
+                            onRefresh={handleRefresh}
+                        />
                     </View>
                 );
             case 'plans':
@@ -483,10 +503,11 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                         loadingPlans={loadingPlans}
                         plans={plans}
                         onPlanCreated={fetchPlans}
+                        onRefresh={fetchPlans}
                     />
                 );
             case 'subscribers':
-                return <MerchantUsers user={user} />;
+                return <MerchantUsers user={{ ...user, ...profileData }} />;
             case 'profile':
                 return (
                     <MerchantProfile
@@ -505,6 +526,9 @@ const MerchantDashboardScreen = ({ user, onLogout }) => {
                         handleUpgradePayment={handleUpgradePayment}
                         setShowLogoutModal={setShowLogoutModal}
                         onLogout={onLogout}
+                        onRefresh={fetchProfile}
+                        pauseAds={pauseAds}
+                        resumeAds={resumeAds}
                     />
                 );
             default:

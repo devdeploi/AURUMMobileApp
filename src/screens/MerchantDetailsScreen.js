@@ -16,7 +16,8 @@ import {
     StatusBar,
     RefreshControl,
     LayoutAnimation,
-    UIManager
+    UIManager,
+    Modal
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +46,8 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
     const [loadingPlans, setLoadingPlans] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [subscribing, setSubscribing] = useState(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState(null);
 
     const [subscribedPlanIds, setSubscribedPlanIds] = useState([]);
 
@@ -105,6 +108,11 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         }
     };
 
+    const openPlanDetails = (plan) => {
+        setSelectedPlan(plan);
+        setShowDetailModal(true);
+    };
+
     const handleSubscribe = async (plan) => {
         setAlertConfig({
             visible: true,
@@ -124,6 +132,8 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                                 },
                             };
 
+                            console.log("Creating subscription order for plan:", plan._id);
+
                             // 1. Create Order
                             const { data: order } = await axios.post(`${APIURL}/payments/create-subscription-order`, {
                                 amount: plan.monthlyAmount,
@@ -131,49 +141,65 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                                 chitPlanId: plan._id
                             }, config);
 
-                            // 2. Open Razorpay
-                            const options = {
-                                description: `Subscription to ${plan.planName}`,
-                                image: merchant.shopImages?.[0] ? `${BASE_URL}${merchant.shopImages[0]}` : undefined,
-                                currency: 'INR',
-                                key: 'rzp_test_S6RoMCiZCpsLo7', // Replace with your actual Key ID from Dashboard
-                                amount: order.amount,
-                                name: 'Aurum',
-                                order_id: order.id,
-                                prefill: {
-                                    email: user?.email || '',
-                                    contact: user?.phone || '',
-                                    name: user?.name || ''
-                                },
-                                theme: { color: COLORS.primary }
-                            };
+                            console.log("ORDER RESPONSE:", order);
 
-                            RazorpayCheckout.open(options).then(async (data) => {
-                                // 3. Verify & Subscribe
-                                try {
-                                    await axios.post(`${APIURL}/chit-plans/${plan._id}/subscribe`, {
-                                        paymentId: data.razorpay_payment_id,
-                                        orderId: data.razorpay_order_id,
-                                        signature: data.razorpay_signature
-                                    }, config);
-                                    setAlertConfig({ visible: true, title: 'Success', message: 'Subscribed successfully!', type: 'success' });
-                                    FCMService.displayLocalNotification('Subscription Active', `You have successfully subscribed to ${plan.planName}.`);
-                                    fetchPlans(); // Refresh to show status if needed
-                                    fetchMySubscriptions(); // Refresh subscription status
-                                } catch (err) {
-                                    console.log(err);
-                                    setAlertConfig({ visible: true, title: 'Error', message: 'Payment verified but subscription failed. Contact support.', type: 'error' });
-                                }
-                            }).catch((error) => {
-                                console.log(error);
-                                setAlertConfig({ visible: true, title: 'Error', message: `Payment failed: ${error.description}`, type: 'error' });
-                            });
+                            if (!order || !order.id) {
+                                throw new Error("Invalid order response from server");
+                            }
+
+                            // 2. Open Razorpay (Delayed to ensure Alert Modal is gone)
+                            setTimeout(() => {
+                                const options = {
+                                    description: `Subscription to ${plan.planName}`,
+                                    image: merchant.shopImages?.[0] ? `${BASE_URL}${merchant.shopImages[0]}` : undefined,
+                                    currency: 'INR',
+                                    key: 'rzp_test_S6RoMCiZCpsLo7',
+                                    amount: Number(order.amount),
+                                    name: 'Aurum',
+                                    order_id: order.id,
+                                    prefill: {
+                                        email: user?.email || '',
+                                        contact: user?.phone || '',
+                                        name: user?.name || ''
+                                    },
+                                    theme: { color: COLORS.primary || '#F3C147' }
+                                };
+
+                                console.log("🟢 About to open Razorpay with options:", JSON.stringify(options, null, 2));
+
+                                RazorpayCheckout.open(options).then(async (data) => {
+                                    console.log("Razorpay Success Data:", data);
+                                    // 3. Verify & Subscribe
+                                    try {
+                                        await axios.post(`${APIURL}/chit-plans/${plan._id}/subscribe`, {
+                                            paymentId: data.razorpay_payment_id,
+                                            orderId: data.razorpay_order_id,
+                                            signature: data.razorpay_signature
+                                        }, config);
+
+                                        setSubscribing(null);
+                                        setAlertConfig({ visible: true, title: 'Success', message: 'Subscribed successfully!', type: 'success' });
+                                        FCMService.displayLocalNotification('Subscription Active', `You have successfully subscribed to ${plan.planName}.`);
+                                        fetchPlans(); // Refresh to show status if needed
+                                        fetchMySubscriptions(); // Refresh subscription status
+                                    } catch (err) {
+                                        console.log("Verification Error:", err);
+                                        setSubscribing(null);
+                                        setAlertConfig({ visible: true, title: 'Error', message: 'Payment verified but subscription failed. Contact support.', type: 'error' });
+                                    }
+                                }).catch((error) => {
+                                    console.log("Razorpay Error:", error);
+                                    setSubscribing(null);
+                                    const errorMessage = error.description || error.reason || error.message || JSON.stringify(error);
+                                    setAlertConfig({ visible: true, title: 'Payment Failed', message: errorMessage, type: 'error' });
+                                });
+                            }, 500); // 500ms delay
 
                         } catch (error) {
-                            console.error(error);
-                            setAlertConfig({ visible: true, title: 'Error', message: error.response?.data?.message || 'Failed to initiate subscription', type: 'error' });
-                        } finally {
+                            console.error("Subscription Flow Error:", error);
                             setSubscribing(null);
+                            const msg = error.response?.data?.message || error.message || 'Failed to initiate subscription';
+                            setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
                         }
                     }
                 }
@@ -291,6 +317,13 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                             </View>
 
                             <TouchableOpacity
+                                style={styles.detailsButton}
+                                onPress={() => openPlanDetails(plan)}
+                            >
+                                <Text style={styles.detailsButtonText}>View Chit Details</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
                                 style={[
                                     styles.subscribeButton,
                                     isSubscribed && styles.subscribedButton
@@ -313,19 +346,106 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         );
     };
 
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [featuredDisplayImage, setFeaturedDisplayImage] = useState(null);
+
+    useEffect(() => {
+        if (merchant.shopImages && merchant.shopImages.length > 0) {
+            setFeaturedDisplayImage(`${BASE_URL}${merchant.shopImages[0]}`);
+        }
+    }, [merchant.shopImages]);
+
     const renderAbout = () => (
         <View style={styles.aboutContainer}>
             {merchant.shopImages && merchant.shopImages.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gallery}>
-                    {merchant.shopImages.map((img, i) => (
-                        <Image
-                            key={i}
-                            source={{ uri: `${BASE_URL}${img}` }}
-                            style={styles.galleryImage}
-                        />
-                    ))}
-                </ScrollView>
+                <View style={{ marginBottom: 24 }}>
+                    {(() => {
+                        const images = merchant.shopImages || [];
+                        const currentFeatured = featuredDisplayImage || `${BASE_URL}${images[0]}`;
+
+                        return (
+                            <>
+                                {/* Big Featured Image */}
+                                <TouchableOpacity
+                                    onPress={() => setSelectedImage(currentFeatured)}
+                                    activeOpacity={0.95}
+                                >
+                                    <Image
+                                        source={{ uri: currentFeatured }}
+                                        style={{
+                                            width: '100%',
+                                            height: 250,
+                                            borderRadius: 16,
+                                            backgroundColor: '#f1f5f9',
+                                            marginBottom: 12,
+                                            borderWidth: 1,
+                                            borderColor: 'rgba(0,0,0,0.05)'
+                                        }}
+                                        resizeMode="cover"
+                                    />
+                                </TouchableOpacity>
+
+                                {/* Thumbnail Grid (4 in a row) */}
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                                    {images.map((img, i) => {
+                                        const uri = `${BASE_URL}${img}`;
+                                        const isSelected = uri === currentFeatured;
+                                        return (
+                                            <TouchableOpacity
+                                                key={i}
+                                                onPress={() => setFeaturedDisplayImage(uri)}
+                                                activeOpacity={0.8}
+                                                style={{
+                                                    width: '25%', // 4 items per row
+                                                    padding: 4
+                                                }}
+                                            >
+                                                <Image
+                                                    source={{ uri }}
+                                                    style={{
+                                                        width: '100%',
+                                                        aspectRatio: 1,
+                                                        borderRadius: 10,
+                                                        borderWidth: isSelected ? 2.5 : 0,
+                                                        borderColor: COLORS.primary,
+                                                        backgroundColor: '#f1f5f9'
+                                                    }}
+                                                    resizeMode="cover"
+                                                />
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            </>
+                        );
+                    })()}
+                </View>
             )}
+
+            {/* Full Screen Image Modal */}
+            <Modal
+                visible={!!selectedImage}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setSelectedImage(null)}
+            >
+                <View style={{ flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity
+                        style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
+                        onPress={() => setSelectedImage(null)}
+                    >
+                        <Icon name="arrow-left" size={24} color="white" />
+                    </TouchableOpacity>
+
+                    {selectedImage && (
+                        <Image
+                            source={{ uri: selectedImage }}
+                            style={{ width: width, height: '100%' }}
+                            resizeMode="contain"
+                        />
+                    )}
+                </View>
+            </Modal>
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Details</Text>
@@ -367,6 +487,57 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                     {activeTab === 'plans' ? renderPlans() : renderAbout()}
                 </ScrollView>
             </SafeAreaView>
+            {/* Plan Details Modal */}
+            <Modal
+                transparent={true}
+                visible={showDetailModal}
+                animationType="slide"
+                onRequestClose={() => setShowDetailModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        {selectedPlan && (
+                            <>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>{selectedPlan.planName}</Text>
+                                    <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                                        <Icon name="times" size={20} color={COLORS.secondary} />
+                                    </TouchableOpacity>
+                                </View>
+                                <ScrollView contentContainerStyle={styles.modalBody}>
+                                    <View style={styles.modalDetailRow}>
+                                        <Text style={styles.modalDetailLabel}>Total Value</Text>
+                                        <Text style={styles.modalDetailValue}>₹{selectedPlan.totalAmount?.toLocaleString()}</Text>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.modalDetailRow}>
+                                        <Text style={styles.modalDetailLabel}>Monthly Installment</Text>
+                                        <Text style={styles.modalDetailValue}>₹{selectedPlan.monthlyAmount?.toLocaleString()}</Text>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.modalDetailRow}>
+                                        <Text style={styles.modalDetailLabel}>Duration</Text>
+                                        <Text style={styles.modalDetailValue}>{selectedPlan.durationMonths} Months</Text>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    {selectedPlan.description && (
+                                        <View style={{ marginTop: 10 }}>
+                                            <Text style={styles.modalDetailLabel}>Description</Text>
+                                            <Text style={styles.modalDescription}>{selectedPlan.description}</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                                <TouchableOpacity
+                                    style={styles.modalCloseButton}
+                                    onPress={() => setShowDetailModal(false)}
+                                >
+                                    <Text style={styles.modalCloseButtonText}>Close</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
             <CustomAlert
                 visible={alertConfig.visible}
                 title={alertConfig.title}
@@ -594,6 +765,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         letterSpacing: 0.5,
     },
+    detailsButton: {
+        backgroundColor: '#F1F5F9',
+        padding: 14,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0'
+    },
+    detailsButtonText: {
+        color: COLORS.primary,
+        fontWeight: '600',
+        fontSize: 14,
+    },
     aboutContainer: {
         padding: 20,
     },
@@ -640,6 +825,80 @@ const styles = StyleSheet.create({
         color: COLORS.secondary,
         textAlign: 'center',
     },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 20,
+        maxHeight: '80%',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.dark,
+        flex: 1,
+    },
+    modalBody: {
+        paddingBottom: 20,
+    },
+    modalDetailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    modalDetailLabel: {
+        fontSize: 14,
+        color: COLORS.secondary,
+        fontWeight: '500',
+    },
+    modalDetailValue: {
+        fontSize: 16,
+        color: COLORS.dark,
+        fontWeight: 'bold',
+    },
+    modalDescription: {
+        marginTop: 5,
+        fontSize: 14,
+        color: COLORS.dark,
+        lineHeight: 22,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+    },
+    modalCloseButton: {
+        backgroundColor: COLORS.primary,
+        padding: 15,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    modalCloseButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    }
 });
 
 export default MerchantDetailsScreen;

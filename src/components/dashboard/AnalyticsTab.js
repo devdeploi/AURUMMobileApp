@@ -1,6 +1,7 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, Modal, TextInput, Image, Alert, Platform } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
@@ -224,328 +225,339 @@ const AnalyticsTab = ({ user }) => {
 
 
     return (
-        <ScrollView
-            contentContainerStyle={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-            <View style={styles.header}>
-                <Text style={styles.sectionTitle}>My Subscriptions</Text>
-                <Text style={styles.sectionSubtitle}>Track your gold savings progress</Text>
-            </View>
-
-            {loading ? (
-                <SkeletonLoader />
-            ) : plans.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Icon name="box-open" size={40} color={COLORS.secondary} />
-                    <Text style={styles.emptyText}>You haven't subscribed to any plans yet.</Text>
+        <View style={styles.wrapper}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+                <View style={styles.header}>
+                    <Text style={styles.sectionTitle}>My Subscriptions</Text>
+                    <Text style={styles.sectionSubtitle}>Track your gold savings progress</Text>
                 </View>
-            ) : (
-                <View style={styles.plansContainer}>
-                    {plans.map((plan) => {
-                        let dueDate = null;
-                        let isPayable = false;
-                        let diffDays = 100; // Default large
 
-                        // Parse Due Date
-                        if (plan.nextDueDate) {
-                            dueDate = new Date(plan.nextDueDate);
-                            const now = new Date();
-                            const timeDiff = dueDate.getTime() - now.getTime();
-                            diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                        }
+                {loading ? (
+                    <SkeletonLoader />
+                ) : plans.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Icon name="box-open" size={40} color={COLORS.secondary} />
+                        <Text style={styles.emptyText}>You haven't subscribed to any plans yet.</Text>
+                    </View>
+                ) : (
+                    <View style={styles.plansContainer}>
+                        {plans.map((plan) => {
+                            let dueDate = null;
+                            let isPayable = false;
+                            let diffDays = 100; // Default large
 
-                        // Determine if payable (Only if due in < 7 days or overdue)
-                        if (plan.status === 'active') {
-                            if (diffDays <= 7) {
-                                isPayable = true;
+                            // Parse Due Date
+                            if (plan.nextDueDate) {
+                                dueDate = new Date(plan.nextDueDate);
+                                const now = new Date();
+                                const timeDiff = dueDate.getTime() - now.getTime();
+                                diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
                             }
-                        }
 
-                        const isExpanded = expandedCardId === plan._id;
+                            // Determine if payable (Only if due in < 7 days or overdue)
+                            if (plan.status === 'active') {
+                                if (diffDays <= 7) {
+                                    isPayable = true;
+                                }
+                            }
 
-                        return (
-                            <TouchableOpacity
-                                key={plan._id}
-                                style={styles.planCard}
-                                onPress={() => setExpandedCardId(isExpanded ? null : plan._id)}
-                                activeOpacity={0.7}
-                            >
-                                {/* Always Visible Header */}
-                                <View style={styles.planHeader}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.planName}>{plan.planName}</Text>
-                                        <View style={styles.merchantRow}>
-                                            <Icon name="store" size={10} color={COLORS.secondary} />
-                                            <Text style={styles.merchantName}>{plan.merchant?.name}</Text>
+                            const isExpanded = expandedCardId === plan._id;
+
+                            return (
+                                <TouchableOpacity
+                                    key={plan._id}
+                                    style={styles.planCard}
+                                    onPress={() => setExpandedCardId(isExpanded ? null : plan._id)}
+                                    activeOpacity={0.7}
+                                >
+                                    {/* Always Visible Header */}
+                                    <View style={styles.planHeader}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.planName}>{plan.planName}</Text>
+                                            <View style={styles.merchantRow}>
+                                                <Icon name="store" size={10} color={COLORS.secondary} />
+                                                <Text style={styles.merchantName}>{plan.merchant?.name}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.statusBadge, { backgroundColor: plan.status === 'active' ? '#E8F5E9' : '#eee' }]}>
+                                            <Text style={[styles.statusText, { color: plan.status === 'active' ? '#2E7D32' : '#666' }]}>
+                                                {plan.status ? plan.status.toUpperCase() : 'UNKNOWN'}
+                                            </Text>
                                         </View>
                                     </View>
-                                    <View style={[styles.statusBadge, { backgroundColor: plan.status === 'active' ? '#E8F5E9' : '#eee' }]}>
-                                        <Text style={[styles.statusText, { color: plan.status === 'active' ? '#2E7D32' : '#666' }]}>
-                                            {plan.status ? plan.status.toUpperCase() : 'UNKNOWN'}
-                                        </Text>
-                                    </View>
-                                </View>
 
-                                {/* Compact Progress Bar - Always Visible */}
-                                <View style={styles.compactProgress}>
-                                    <View style={styles.progressBarBg}>
-                                        <View
-                                            style={[
-                                                styles.progressBarFill,
-                                                { width: `${(plan.installmentsPaid / plan.durationMonths) * 100}%` }
-                                            ]}
+                                    {/* Compact Progress Bar - Always Visible */}
+                                    <View style={styles.compactProgress}>
+                                        <View style={styles.progressBarBg}>
+                                            <View
+                                                style={[
+                                                    styles.progressBarFill,
+                                                    { width: `${(plan.installmentsPaid / plan.durationMonths) * 100}%` }
+                                                ]}
+                                            />
+                                        </View>
+                                        <View style={styles.compactStats}>
+                                            <Text style={styles.compactStatText}>
+                                                ₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0} saved
+                                            </Text>
+                                            <Text style={styles.compactStatText}>
+                                                {plan.installmentsPaid}/{plan.durationMonths} months
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Expand/Collapse Indicator */}
+                                    <View style={styles.expandIndicator}>
+                                        <Text style={styles.expandText}>
+                                            {isExpanded ? 'Tap to collapse' : 'Tap to expand'}
+                                        </Text>
+                                        <Icon
+                                            name={isExpanded ? "chevron-up" : "chevron-down"}
+                                            size={10}
+                                            color={COLORS.primary}
                                         />
                                     </View>
-                                    <View style={styles.compactStats}>
-                                        <Text style={styles.compactStatText}>
-                                            ₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0} saved
-                                        </Text>
-                                        <Text style={styles.compactStatText}>
-                                            {plan.installmentsPaid}/{plan.durationMonths} months
-                                        </Text>
-                                    </View>
-                                </View>
 
-                                {/* Expand/Collapse Indicator */}
-                                <View style={styles.expandIndicator}>
-                                    <Text style={styles.expandText}>
-                                        {isExpanded ? 'Tap to collapse' : 'Tap to expand'}
-                                    </Text>
-                                    <Icon
-                                        name={isExpanded ? "chevron-up" : "chevron-down"}
-                                        size={10}
-                                        color={COLORS.primary}
-                                    />
-                                </View>
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                        <>
+                                            <View style={styles.divider} />
 
-                                {/* Expanded Content */}
-                                {isExpanded && (
-                                    <>
-                                        <View style={styles.divider} />
-
-                                        <View style={styles.statsGrid}>
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Total Saved</Text>
-                                                <Text style={styles.statValue}>₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0}</Text>
+                                            <View style={styles.statsGrid}>
+                                                <View style={styles.statItem}>
+                                                    <Text style={styles.statLabel}>Total Saved</Text>
+                                                    <Text style={styles.statValue}>₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0}</Text>
+                                                </View>
+                                                <View style={styles.statItem}>
+                                                    <Text style={styles.statLabel}>Next Due</Text>
+                                                    <Text style={[styles.statValue, diffDays <= 3 && { color: COLORS.error }]}>
+                                                        {dueDate && !isNaN(dueDate.getTime())
+                                                            ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
+                                                            : 'Due Now'}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.statItem}>
+                                                    <Text style={styles.statLabel}>Remaining</Text>
+                                                    <Text style={styles.statValue}>{plan.remainingMonths} Months</Text>
+                                                </View>
                                             </View>
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Next Due</Text>
-                                                <Text style={[styles.statValue, diffDays <= 3 && { color: COLORS.error }]}>
-                                                    {dueDate && !isNaN(dueDate.getTime())
-                                                        ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
-                                                        : 'Due Now'}
-                                                </Text>
-                                            </View>
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Remaining</Text>
-                                                <Text style={styles.statValue}>{plan.remainingMonths} Months</Text>
-                                            </View>
-                                        </View>
 
-                                        {/* Payment Buttons */}
-                                        <View style={{ gap: 10 }}>
-                                            {plan.status === 'active' && (
-                                                <>
-                                                    <TouchableOpacity
-                                                        style={[
-                                                            styles.payButton,
-                                                            diffDays <= 3 ? styles.payButtonUrgent : styles.payButtonNormal
-                                                        ]}
-                                                        onPress={() => handlePayInstallment(plan)}
-                                                        disabled={payingId === plan._id}
-                                                    >
-                                                        {payingId === plan._id ? (
-                                                            <ActivityIndicator color="#fff" size="small" />
-                                                        ) : (
+                                            {/* Payment Buttons */}
+                                            <View style={{ gap: 10 }}>
+                                                {plan.status === 'active' && (
+                                                    <>
+                                                        <TouchableOpacity
+                                                            style={[
+                                                                styles.payButton,
+                                                                diffDays <= 3 ? styles.payButtonUrgent : styles.payButtonNormal
+                                                            ]}
+                                                            onPress={() => handlePayInstallment(plan)}
+                                                            disabled={payingId === plan._id}
+                                                        >
+                                                            {payingId === plan._id ? (
+                                                                <ActivityIndicator color="#fff" size="small" />
+                                                            ) : (
+                                                                <Text style={[
+                                                                    styles.payButtonText,
+                                                                    diffDays <= 3 ? styles.payButtonTextUrgent : styles.payButtonTextNormal
+                                                                ]}>
+                                                                    Pay Online: ₹{plan.monthlyAmount}
+                                                                </Text>
+                                                            )}
+                                                        </TouchableOpacity>
+
+                                                        <TouchableOpacity
+                                                            style={[
+                                                                styles.outlineButton,
+                                                                diffDays <= 3 ? styles.outlineButtonUrgent : styles.outlineButtonNormal
+                                                            ]}
+                                                            onPress={() => openOfflineModal(plan)}
+                                                        >
                                                             <Text style={[
-                                                                styles.payButtonText,
-                                                                diffDays <= 3 ? styles.payButtonTextUrgent : styles.payButtonTextNormal
+                                                                styles.outlineButtonText,
+                                                                diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
                                                             ]}>
-                                                                Pay Online: ₹{plan.monthlyAmount}
+                                                                Paid Offline?
                                                             </Text>
-                                                        )}
-                                                    </TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        style={[
-                                                            styles.outlineButton,
-                                                            diffDays <= 3 ? styles.outlineButtonUrgent : styles.outlineButtonNormal
-                                                        ]}
-                                                        onPress={() => openOfflineModal(plan)}
-                                                    >
-                                                        <Text style={[
-                                                            styles.outlineButtonText,
-                                                            diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
-                                                        ]}>
-                                                            Paid Offline?
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                </>
-                                            )}
-                                        </View>
-
-                                        {!isPayable && plan.status === 'active' && (
-                                            <View style={[styles.footerRow, { marginTop: 10 }]}>
-                                                <Icon name="clock" size={12} color={COLORS.secondary} />
-                                                <Text style={[styles.footerText, { color: COLORS.secondary }]}>
-                                                    Next payment due in {Math.max(0, diffDays)} days
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        <View style={[styles.footerRow, { marginTop: 10, backgroundColor: '#f8f9fa' }]}>
-                                            <Icon name="piggy-bank" size={12} color={COLORS.primary} />
-                                            <Text style={styles.footerText}>
-                                                Target Goal: ₹{plan.totalAmount.toLocaleString()}
-                                            </Text>
-                                        </View>
-
-                                        <TouchableOpacity
-                                            style={styles.historyToggleButton}
-                                            onPress={() => setExpandedHistoryId(expandedHistoryId === plan._id ? null : plan._id)}
-                                        >
-                                            <Text style={styles.historyToggleText}>
-                                                {expandedHistoryId === plan._id ? 'Hide Payment History' : 'View Payment History'}
-                                            </Text>
-                                            <Icon name={expandedHistoryId === plan._id ? "chevron-up" : "chevron-down"} size={10} color={COLORS.primary} />
-                                        </TouchableOpacity>
-
-                                        {expandedHistoryId === plan._id && (
-                                            <View style={styles.historyContainer}>
-                                                <Text style={styles.historyTitle}>Payment History</Text>
-                                                {plan.history && plan.history.length > 0 ? (
-                                                    plan.history.map((payment, index) => (
-                                                        <View key={payment._id || index} style={styles.historyItem}>
-                                                            <View style={styles.historyLeft}>
-                                                                <Icon name="check-circle" size={10} color={payment.status === 'Pending Approval' ? 'orange' : "#2E7D32"} style={{ marginTop: 2 }} />
-                                                                <View style={{ marginLeft: 8 }}>
-                                                                    <Text style={styles.historyDate}>
-                                                                        {new Date(payment.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                    </Text>
-                                                                    <Text style={[styles.historyStatus, { color: payment.status === 'Pending Approval' ? 'orange' : '#666' }]}>
-                                                                        {payment.status || 'Paid'}
-                                                                    </Text>
-                                                                </View>
-                                                            </View>
-                                                            <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
-                                                        </View>
-                                                    ))
-                                                ) : (
-                                                    <Text style={styles.noHistoryText}>No payments recorded yet.</Text>
+                                                        </TouchableOpacity>
+                                                    </>
                                                 )}
                                             </View>
-                                        )}
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            )}
-            <CustomAlert {...alertConfig} onClose={hideAlert} />
 
-            {/* Offline Payment Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={offlineModalVisible}
-                onRequestClose={() => setOfflineModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Report Offline Payment</Text>
-                            <TouchableOpacity onPress={() => setOfflineModalVisible(false)}>
-                                <Icon name="times" size={20} color="#999" />
-                            </TouchableOpacity>
-                        </View>
+                                            {!isPayable && plan.status === 'active' && (
+                                                <View style={[styles.footerRow, { marginTop: 10 }]}>
+                                                    <Icon name="clock" size={12} color={COLORS.secondary} />
+                                                    <Text style={[styles.footerText, { color: COLORS.secondary }]}>
+                                                        Next payment due in {Math.max(0, diffDays)} days
+                                                    </Text>
+                                                </View>
+                                            )}
 
-                        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-                            <Text style={styles.modalSubtitle}>
-                                For Plan: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForOffline?.planName}</Text>
-                            </Text>
-                            <Text style={styles.modalInfo}>
-                                Ensure you have paid <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForOffline?.monthlyAmount}</Text> to the merchant directly.
-                            </Text>
+                                            <View style={[styles.footerRow, { marginTop: 10, backgroundColor: '#f8f9fa' }]}>
+                                                <Icon name="piggy-bank" size={12} color={COLORS.primary} />
+                                                <Text style={styles.footerText}>
+                                                    Target Goal: ₹{plan.totalAmount.toLocaleString()}
+                                                </Text>
+                                            </View>
 
-                            <Text style={styles.inputLabel}>Payment Date</Text>
-                            <TouchableOpacity
-                                style={styles.datePickerButton}
-                                onPress={() => setShowDatePicker(true)}
-                            >
-                                <Icon name="calendar-alt" size={16} color={COLORS.primary} />
-                                <Text style={styles.datePickerText}>
-                                    {offlineForm.date.toLocaleDateString('en-GB', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                        year: 'numeric'
-                                    })}
-                                </Text>
-                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.historyToggleButton}
+                                                onPress={() => setExpandedHistoryId(expandedHistoryId === plan._id ? null : plan._id)}
+                                            >
+                                                <Text style={styles.historyToggleText}>
+                                                    {expandedHistoryId === plan._id ? 'Hide Payment History' : 'View Payment History'}
+                                                </Text>
+                                                <Icon name={expandedHistoryId === plan._id ? "chevron-up" : "chevron-down"} size={10} color={COLORS.primary} />
+                                            </TouchableOpacity>
 
-                            {showDatePicker && (
-                                <DateTimePicker
-                                    value={offlineForm.date}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={(event, selectedDate) => {
-                                        setShowDatePicker(Platform.OS === 'ios');
-                                        if (selectedDate) {
-                                            setOfflineForm({ ...offlineForm, date: selectedDate });
-                                        }
-                                    }}
-                                    maximumDate={new Date()}
-                                />
-                            )}
-
-                            <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
-                            <TextInput
-                                style={styles.textInput}
-                                placeholder="E.g., Paid via UPI to store owner..."
-                                value={offlineForm.notes}
-                                onChangeText={(t) => setOfflineForm({ ...offlineForm, notes: t })}
-                                multiline
-                            />
-
-                            <Text style={styles.inputLabel}>Proof of Payment (Screenshot/Receipt)</Text>
-                            <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-                                <Icon name="camera" size={20} color={COLORS.primary} />
-                                <Text style={styles.uploadButtonText}>
-                                    {offlineForm.proofImage ? 'Change Image' : 'Upload Proof Image'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            {offlineForm.proofImage && (
-                                <View style={styles.imagePreviewContainer}>
-                                    <Image source={{ uri: offlineForm.proofImage.uri }} style={styles.imagePreview} />
-                                    <Text style={styles.imageName}>{offlineForm.proofImage.fileName}</Text>
-                                </View>
-                            )}
-
-                            <TouchableOpacity
-                                style={[styles.submitButton, submittingOffline && { opacity: 0.7 }]}
-                                onPress={submitOfflinePayment}
-                                disabled={submittingOffline}
-                            >
-                                {submittingOffline ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.submitButtonText}>Submit Request</Text>
-                                )}
-                            </TouchableOpacity>
-                        </ScrollView>
+                                            {expandedHistoryId === plan._id && (
+                                                <View style={styles.historyContainer}>
+                                                    <Text style={styles.historyTitle}>Payment History</Text>
+                                                    {plan.history && plan.history.length > 0 ? (
+                                                        plan.history.map((payment, index) => (
+                                                            <View key={payment._id || index} style={styles.historyItem}>
+                                                                <View style={styles.historyLeft}>
+                                                                    <Icon name="check-circle" size={10} color={payment.status === 'Pending Approval' ? 'orange' : "#2E7D32"} style={{ marginTop: 2 }} />
+                                                                    <View style={{ marginLeft: 8 }}>
+                                                                        <Text style={styles.historyDate}>
+                                                                            {new Date(payment.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                        </Text>
+                                                                        <Text style={[styles.historyStatus, { color: payment.status === 'Pending Approval' ? 'orange' : '#666' }]}>
+                                                                            {payment.status || 'Paid'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+                                                                <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
+                                                            </View>
+                                                        ))
+                                                    ) : (
+                                                        <Text style={styles.noHistoryText}>No payments recorded yet.</Text>
+                                                    )}
+                                                </View>
+                                            )}
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
-                </View>
-            </Modal>
-        </ScrollView>
+                )}
+                <CustomAlert {...alertConfig} onClose={hideAlert} />
+
+                {/* Offline Payment Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={offlineModalVisible}
+                    onRequestClose={() => setOfflineModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Report Offline Payment</Text>
+                                <TouchableOpacity onPress={() => setOfflineModalVisible(false)}>
+                                    <Icon name="times" size={20} color="#999" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                                <Text style={styles.modalSubtitle}>
+                                    For Plan: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForOffline?.planName}</Text>
+                                </Text>
+                                <Text style={styles.modalInfo}>
+                                    Ensure you have paid <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForOffline?.monthlyAmount}</Text> to the merchant directly.
+                                </Text>
+
+                                <Text style={styles.inputLabel}>Payment Date</Text>
+                                <TouchableOpacity
+                                    style={styles.datePickerButton}
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Icon name="calendar-alt" size={16} color={COLORS.primary} />
+                                    <Text style={styles.datePickerText}>
+                                        {offlineForm.date.toLocaleDateString('en-GB', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric'
+                                        })}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        value={offlineForm.date}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => {
+                                            setShowDatePicker(Platform.OS === 'ios');
+                                            if (selectedDate) {
+                                                setOfflineForm({ ...offlineForm, date: selectedDate });
+                                            }
+                                        }}
+                                        maximumDate={new Date()}
+                                    />
+                                )}
+
+                                <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="E.g., Paid via UPI to store owner..."
+                                    value={offlineForm.notes}
+                                    onChangeText={(t) => setOfflineForm({ ...offlineForm, notes: t })}
+                                    multiline
+                                />
+
+                                <Text style={styles.inputLabel}>Proof of Payment (Screenshot/Receipt)</Text>
+                                <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+                                    <Icon name="camera" size={20} color={COLORS.primary} />
+                                    <Text style={styles.uploadButtonText}>
+                                        {offlineForm.proofImage ? 'Change Image' : 'Upload Proof Image'}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {offlineForm.proofImage && (
+                                    <View style={styles.imagePreviewContainer}>
+                                        <Image source={{ uri: offlineForm.proofImage.uri }} style={styles.imagePreview} />
+                                        <Text style={styles.imageName}>{offlineForm.proofImage.fileName}</Text>
+                                    </View>
+                                )}
+
+                                <TouchableOpacity
+                                    style={[styles.submitButton, submittingOffline && { opacity: 0.7 }]}
+                                    onPress={submitOfflinePayment}
+                                    disabled={submittingOffline}
+                                >
+                                    {submittingOffline ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.submitButtonText}>Submit Request</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+            </ScrollView>
+            <LinearGradient
+                colors={['rgba(248, 250, 252, 0)', '#F8FAFC']}
+                style={styles.bottomFade}
+                pointerEvents="none"
+            />
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    wrapper: {
+        flex: 1,
+        backgroundColor: '#F8FAFC' // Match theme
+    },
     content: {
         padding: 16,
-        paddingBottom: 80,
+        paddingBottom: 100,
     },
     centerContainer: {
         flex: 1,

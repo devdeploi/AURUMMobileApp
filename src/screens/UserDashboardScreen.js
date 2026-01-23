@@ -32,6 +32,8 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
     const [user, setUser] = useState(initialUser);
     const [activeTab, setActiveTab] = useState(initialTab);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [refreshingMerchants, setRefreshingMerchants] = useState(false);
+
 
     // Merchants State
     const [merchants, setMerchants] = useState([]);
@@ -63,7 +65,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
     }, [activeTab]);
 
     const fetchMerchants = async () => {
-        if (loadingMerchants || (merchants.length > 0 && page === 1)) return;
+        if (loadingMerchants) return;
 
         if (merchants.length > 0 && page === 1 && activeTab === 'merchants') {
             return;
@@ -130,6 +132,30 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
         }
     }, [page, activeTab]);
 
+    const handleRefreshMerchants = async () => {
+        if (loadingMerchants) return;
+
+        setRefreshingMerchants(true);
+        setPage(1);
+
+        try {
+            const { data } = await axios.get(`${APIURL}/merchants?page=1&limit=10`);
+            setMerchants(data.merchants);
+            setHasMoreMerchants(data.pagination.hasNextPage);
+        } catch (error) {
+            console.error(error);
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: 'Failed to refresh merchants',
+                type: 'error'
+            });
+        } finally {
+            setRefreshingMerchants(false);
+        }
+    };
+
+
     const handleUpdateProfile = async (updatedData) => {
         try {
             const userId = user._id || user.id;
@@ -169,15 +195,39 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
         }
     };
 
+    const fetchUser = async () => {
+        try {
+            const userId = user._id || user.id;
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` }
+            };
+            const { data } = await axios.get(`${APIURL}/users/${userId}`, config);
+
+            // Merge existing user data (like token) with new profile data
+            setUser(prev => ({ ...prev, ...data }));
+        } catch (error) {
+            console.error("Failed to refresh user profile", error);
+        }
+    };
+
     const renderContent = () => {
         switch (activeTab) {
             case 'dashboard':
-                return <DashboardTab user={user} />;
+                return (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fafafa' }}>
+                        <Icon name="chart-pie" size={48} color={COLORS.primary} style={{ opacity: 0.8, marginBottom: 16 }} />
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>Dashboard</Text>
+                        <Text style={{ fontSize: 14, color: '#666' }}>Your financial overview is creating...</Text>
+                    </View>
+                    // <DashboardTab user={user} />
+                );
             case 'merchants':
                 return (
                     <MerchantsTab
                         merchants={merchants}
                         loading={loadingMerchants}
+                        refreshing={refreshingMerchants}
+                        onRefresh={handleRefreshMerchants}
                         onLoadMore={handleLoadMoreMerchants}
                         onSelectMerchant={onSelectMerchant}
                         hasMore={hasMoreMerchants}
@@ -187,7 +237,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
             case 'analytics':
                 return <AnalyticsTab user={user} />;
             case 'profile':
-                return <ProfileTab user={user} onUpdate={handleUpdateProfile} onUpdateImage={updateProfileImage} onLogout={handleLogoutPress} />;
+                return <ProfileTab user={user} onUpdate={handleUpdateProfile} onUpdateImage={updateProfileImage} onLogout={handleLogoutPress} onRefresh={fetchUser} />;
             default:
                 return null;
         }

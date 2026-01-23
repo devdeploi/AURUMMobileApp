@@ -228,8 +228,11 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                             <Text style={styles.planPrice}>{getPrice('Standard')}<Text style={styles.planPeriod}>{getPeriod()}</Text></Text>
                         </View>
                         <View style={styles.featureList}>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Max 3 Plans</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Basic Support</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>3 Chits Only</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Normal Dashboard</Text></View>
+                            <View style={styles.featureItem}><Icon name="times" size={12} color={COLORS.danger} /><Text style={styles.featureText}>No Shop Image Uploads</Text></View>
+                            <View style={styles.featureItem}><Icon name="exclamation-triangle" size={12} color={COLORS.warning} /><Text style={styles.featureText}>Screen Blocking Ads</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Email Support</Text></View>
                         </View>
                         {isStandardRestricted && (
                             <View style={styles.warningContainer}>
@@ -281,9 +284,11 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                             <Text style={[styles.planPrice, { color: COLORS.warning }]}>{getPrice('Premium')}<Text style={styles.planPeriod}>{getPeriod()}</Text></Text>
                         </View>
                         <View style={styles.featureList}>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Max 6 Plans</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Priority Support</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Advanced Analytics</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Up to 6 Chits</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Advanced Dashboard</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Unlimited Shop Images</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>No Screen Blocking Ads</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>24/7 Support</Text></View>
                         </View>
                     </TouchableOpacity>
                 </View>

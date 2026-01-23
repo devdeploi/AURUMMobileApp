@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, StyleSheet, Dimensions, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, StyleSheet, Dimensions, Modal, RefreshControl } from 'react-native';
 import { COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { APIURL } from '../constants/api';
@@ -22,22 +22,40 @@ const MerchantProfile = ({
     removeShopImage,
     handleUpgradePayment,
     setShowLogoutModal,
-    onLogout
+    onLogout,
+    onRefresh,
+    pauseAds,
+    resumeAds
 }) => {
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [billingCycle, setBillingCycle] = useState('monthly');
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleRefresh = async () => {
+        if (onRefresh) {
+            setRefreshing(true);
+            await onRefresh();
+            setRefreshing(false);
+        }
+    };
 
     return (
         <View style={{ flex: 1 }}>
             <ScrollView
                 contentContainerStyle={[styles.contentContainer, isEditingProfile && { paddingBottom: 100 }]}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+                }
             >
                 {profileData.plan !== 'Premium' && (
                     <TouchableOpacity
                         style={styles.upgradeCard}
                         activeOpacity={0.9}
-                        onPress={() => setShowPremiumModal(true)}
+                        onPress={() => {
+
+                            setShowPremiumModal(true);
+                        }}
                     >
                         <View style={styles.upgradeContent}>
                             <View style={styles.upgradeBadge}>
@@ -341,63 +359,127 @@ const MerchantProfile = ({
 
                         {/* Shop Images */}
                         <View style={styles.documentItem}>
-                            <View style={styles.documentHeader}>
-                                <Icon name="images" size={16} color={COLORS.secondary} />
-                                <Text style={styles.documentTitle}>Shop Images</Text>
-                                <Text style={styles.documentCount}>({profileData.shopImages?.length || 0})</Text>
+                            <View style={[styles.documentHeader, { justifyContent: 'space-between' }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Icon name="images" size={16} color={COLORS.secondary} />
+                                    <Text style={styles.documentTitle}>Shop Images</Text>
+                                    <Text style={styles.documentCount}>({profileData.shopImages?.length || 0})</Text>
+                                </View>
+                                {isEditingProfile && profileData.plan === 'Premium' && (
+                                    <TouchableOpacity
+                                        onPress={() => handleImageUpload('shopImage')}
+                                        disabled={uploadingDoc}
+                                        style={{
+                                            backgroundColor: 'rgba(145, 82, 0, 0.1)',
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 6,
+                                            borderRadius: 20,
+                                            flexDirection: 'row',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <Icon name="plus" size={10} color={COLORS.primary} style={{ marginRight: 6 }} />
+                                        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.primary }}>Add</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
 
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                style={styles.shopImagesScroll}
-                            >
-                                {profileData.shopImages && profileData.shopImages.length > 0 ? (
-                                    <>
-                                        {profileData.shopImages.map((img, idx) => (
-                                            <View key={idx} style={styles.shopImageContainer}>
-                                                <Image
-                                                    source={{ uri: `${APIURL.replace('/api', '')}${img}` }}
-                                                    style={styles.shopImage}
-                                                />
-                                                {isEditingProfile && (
-                                                    <TouchableOpacity
-                                                        style={styles.removeImageButton}
-                                                        onPress={() => removeShopImage(idx)}
-                                                    >
-                                                        <Icon name="times" size={12} color="#fff" />
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        ))}
+                            {profileData.plan !== 'Premium' ? (
+                                <TouchableOpacity
+                                    style={[styles.noImagesContainer, {
+                                        backgroundColor: 'rgba(145, 82, 0, 0.03)',
+                                        borderColor: 'rgba(145, 82, 0, 0.15)',
+                                        borderStyle: 'dashed',
+                                        borderWidth: 1.5,
+                                        flexDirection: 'column',
+                                    }]}
+                                    onPress={() => {
 
-                                        {isEditingProfile && (
-                                            <TouchableOpacity
-                                                style={styles.addImageButton}
-                                                onPress={() => handleImageUpload('shopImage')}
-                                                disabled={uploadingDoc}
-                                            >
-                                                <Icon name="plus" size={24} color={COLORS.primary} />
-                                                <Text style={styles.addImageText}>Add More</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </>
-                                ) : (
-                                    <View style={styles.noImagesContainer}>
-                                        <Icon name="image" size={30} color="#ccc" />
-                                        <Text style={styles.noImagesText}>No shop images</Text>
-                                        {isEditingProfile && (
-                                            <TouchableOpacity
-                                                style={styles.addFirstImageButton}
-                                                onPress={() => handleImageUpload('shopImage')}
-                                                disabled={uploadingDoc}
-                                            >
-                                                <Text style={styles.addFirstImageText}>Add First Image</Text>
-                                            </TouchableOpacity>
-                                        )}
+                                        setShowPremiumModal(true);
+                                    }}
+                                >
+                                    <View style={{
+                                        width: 44,
+                                        height: 44,
+                                        borderRadius: 22,
+                                        backgroundColor: 'rgba(145, 82, 0, 0.08)',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: 8
+                                    }}>
+                                        <Icon name="crown" size={18} color={COLORS.primary} />
                                     </View>
-                                )}
-                            </ScrollView>
+                                    <Text style={{
+                                        fontSize: 14,
+                                        color: COLORS.primary,
+                                        fontWeight: '700',
+                                        textAlign: 'center',
+                                        marginBottom: 2
+                                    }}>
+                                        Premium Exclusive
+                                    </Text>
+                                    <Text style={{
+                                        fontSize: 12,
+                                        color: '#888',
+                                        textAlign: 'center',
+                                        marginHorizontal: 20
+                                    }}>
+                                        Upgrade to upload shop photos
+                                    </Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.shopImagesScroll}
+                                >
+                                    {profileData.shopImages && profileData.shopImages.length > 0 ? (
+                                        <>
+                                            {profileData.shopImages.map((img, idx) => (
+                                                <View key={idx} style={styles.shopImageContainer}>
+                                                    <Image
+                                                        source={{ uri: `${APIURL.replace('/api', '')}${img}` }}
+                                                        style={styles.shopImage}
+                                                    />
+                                                    {isEditingProfile && (
+                                                        <TouchableOpacity
+                                                            style={styles.removeImageButton}
+                                                            onPress={() => removeShopImage(idx)}
+                                                        >
+                                                            <Icon name="times" size={12} color="#fff" />
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                            ))}
+
+                                            {isEditingProfile && (
+                                                <TouchableOpacity
+                                                    style={styles.addImageButton}
+                                                    onPress={() => handleImageUpload('shopImage')}
+                                                    disabled={uploadingDoc}
+                                                >
+                                                    <Icon name="plus" size={24} color={COLORS.primary} />
+                                                    <Text style={styles.addImageText}>Add More</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <View style={styles.noImagesContainer}>
+                                            <Icon name="image" size={30} color="#ccc" />
+                                            <Text style={styles.noImagesText}>No shop images</Text>
+                                            {isEditingProfile && (
+                                                <TouchableOpacity
+                                                    style={styles.addFirstImageButton}
+                                                    onPress={() => handleImageUpload('shopImage')}
+                                                    disabled={uploadingDoc}
+                                                >
+                                                    <Text style={styles.addFirstImageText}>Add First Image</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -411,7 +493,10 @@ const MerchantProfile = ({
                     visible={showPremiumModal}
                     transparent={true}
                     animationType="slide"
-                    onRequestClose={() => setShowPremiumModal(false)}
+                    onRequestClose={() => {
+
+                        setShowPremiumModal(false);
+                    }}
                 >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContainer}>
@@ -420,7 +505,10 @@ const MerchantProfile = ({
                                 <Text style={styles.modalTitle}>Premium Plan</Text>
                                 <TouchableOpacity
                                     style={styles.closeButton}
-                                    onPress={() => setShowPremiumModal(false)}
+                                    onPress={() => {
+
+                                        setShowPremiumModal(false);
+                                    }}
                                 >
                                     <Icon name="times" size={20} color="#666" />
                                 </TouchableOpacity>
@@ -428,6 +516,74 @@ const MerchantProfile = ({
 
                             <ScrollView style={styles.modalBody}>
                                 <Text style={styles.modalSubtitle}>Unlock exclusive features for your business</Text>
+
+                                {/* Plan Comparison */}
+                                <View style={{ marginBottom: 24 }}>
+                                    {/* Standard Plan Column */}
+                                    <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 16 }}>
+                                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Standard Plan (Current)</Text>
+                                        <View style={styles.featureItem}>
+                                            <Icon name="check-circle" size={12} color="#94a3b8" style={{ marginRight: 10 }} />
+                                            <Text style={[styles.featureText, { color: '#64748b' }]}>3 Chits Only</Text>
+                                        </View>
+                                        <View style={styles.featureItem}>
+                                            <Icon name="check-circle" size={12} color="#94a3b8" style={{ marginRight: 10 }} />
+                                            <Text style={[styles.featureText, { color: '#64748b' }]}>Normal Dashboard</Text>
+                                        </View>
+                                        <View style={styles.featureItem}>
+                                            <Icon name="times-circle" size={12} color="#ef4444" style={{ marginRight: 10 }} />
+                                            <Text style={[styles.featureText, { color: '#64748b' }]}>No Shop Image Uploads</Text>
+                                        </View>
+                                        <View style={styles.featureItem}>
+                                            <Icon name="exclamation-circle" size={12} color="#f59e0b" style={{ marginRight: 10 }} />
+                                            <Text style={[styles.featureText, { color: '#64748b' }]}>Screen Blocking Ads</Text>
+                                        </View>
+                                        <View style={styles.featureItem}>
+                                            <Icon name="check-circle" size={12} color="#94a3b8" style={{ marginRight: 10 }} />
+                                            <Text style={[styles.featureText, { color: '#64748b' }]}>Email Support</Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Premium Plan Column */}
+                                    <View>
+                                        <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.warning, marginBottom: 12, textTransform: 'uppercase' }}>Premium Plan (Upgrade)</Text>
+
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="check" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Up to 6 Chits</Text>
+                                        </View>
+
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="chart-pie" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Advanced Dashboard</Text>
+                                        </View>
+
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="images" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Unlimited Shop Images</Text>
+                                        </View>
+
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="ban" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>No Screen Blocking Ads</Text>
+                                        </View>
+
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="headset" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>24/7 Support</Text>
+                                        </View>
+                                    </View>
+                                </View>
 
                                 {/* Toggle Container */}
                                 <View style={styles.toggleContainer}>
@@ -452,35 +608,21 @@ const MerchantProfile = ({
                                         {billingCycle === 'monthly' ? '₹5000' : '₹50000'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'}</Text>
                                     </Text>
                                 </View>
-                                {/* Features */}
-                                <View style={styles.featureItem}>
-                                    <View style={styles.featureIconContainer}>
-                                        <Icon name="check" size={12} color="#fff" />
-                                    </View>
-                                    <Text style={styles.featureText}>Manage up to 6 chits</Text>
-                                </View>
-
-                                <View style={styles.featureItem}>
-                                    <View style={styles.featureIconContainer}>
-                                        <Icon name="check" size={12} color="#fff" />
-                                    </View>
-                                    <Text style={styles.featureText}>Advanced Analytics</Text>
-                                </View>
-
-                                <View style={styles.featureItem}>
-                                    <View style={styles.featureIconContainer}>
-                                        <Icon name="check" size={12} color="#fff" />
-                                    </View>
-                                    <Text style={styles.featureText}>Priority 24/7 Support</Text>
-                                </View>
-
-
                             </ScrollView>
 
                             <View style={styles.modalFooter}>
                                 <TouchableOpacity
                                     style={styles.payButton}
                                     onPress={() => {
+                                        // Resume ads right before payment so logic can continue, 
+                                        // OR keep paused until payment done? Usually good to resume if we close modal.
+                                        // But actually, Razorpay takes over. We can resume ads now, 
+                                        // BUT if ad pops over Razorpay? 
+                                        // Better to resume ads ONLY after we are truly done or cancelled.
+                                        // However, handleUpgradePayment is async fire-and-forget here?
+                                        // Let's resume ads to reset state, but maybe with a delay?
+                                        // Safest: Resume ads now. The ad timer is 5 mins.
+
                                         setShowPremiumModal(false);
                                         handleUpgradePayment(billingCycle);
                                     }}
@@ -509,7 +651,7 @@ const MerchantProfile = ({
                 <View style={styles.floatingButtonContainer}>
                     <TouchableOpacity
                         style={[styles.floatingSaveButton, updatingProfile && styles.saveButtonDisabled]}
-                        onPress={handleUpdateProfile}
+                        onPress={() => handleUpdateProfile(profileData)}
                         disabled={updatingProfile}
                     >
                         {updatingProfile ? (

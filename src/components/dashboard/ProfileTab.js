@@ -9,19 +9,30 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Animated,
-    Image
+    Image,
+    RefreshControl
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
 
-const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout }) => {
+const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(user.name);
     const [phone, setPhone] = useState(user.phone || '');
     const [address, setAddress] = useState(user.address || '');
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [activeInput] = useState(new Animated.Value(0));
+
+    const handleRefresh = async () => {
+        if (onRefresh) {
+            setRefreshing(true);
+            await onRefresh();
+            setRefreshing(false);
+        }
+    };
 
     // ... handleSave ...
 
@@ -64,264 +75,278 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout }) => {
     };
 
     return (
-        <ScrollView
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-        >
-            {/* Modern Header */}
-            <View style={styles.headerContainer}>
-                <View style={styles.headerContent}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10 }}>
-                        <Text style={styles.sectionTitle}>Profile</Text>
-                        {!isEditing && (
-                            <TouchableOpacity
-                                style={styles.smallEditButton}
-                                onPress={() => {
-                                    setName(user.name);
-                                    setPhone(user.phone || '');
-                                    setAddress(user.address || '');
-                                    setIsEditing(true);
-                                }}
-                            >
-                                <Icon name="pen" size={10} color="#fff" />
-                                <Text style={styles.smallEditText}>Edit</Text>
+        <View style={styles.wrapper}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+                }
+            >
+                {/* Modern Header */}
+                <View style={styles.headerContainer}>
+                    <View style={styles.headerContent}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10 }}>
+                            <Text style={styles.sectionTitle}>Profile</Text>
+                            {!isEditing && (
+                                <TouchableOpacity
+                                    style={styles.smallEditButton}
+                                    onPress={() => {
+                                        setName(user.name);
+                                        setPhone(user.phone || '');
+                                        setAddress(user.address || '');
+                                        setIsEditing(true);
+                                    }}
+                                >
+                                    <Icon name="pen" size={10} color="#fff" />
+                                    <Text style={styles.smallEditText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <Text style={styles.sectionSubtitle}>Manage your personal information</Text>
+                    </View>
+                    <View style={styles.headerDecoration}>
+                        <View style={[styles.decorationCircle, { backgroundColor: COLORS.primary + '20' }]} />
+                        <View style={[styles.decorationCircle, { backgroundColor: COLORS.secondary + '20', top: 10, left: 30 }]} />
+                    </View>
+                </View>
+
+                {/* Profile Card with Modern Layout */}
+                <View style={styles.profileCard}>
+                    {/* Avatar Section with Gradient Background */}
+                    <View style={styles.profileHeader}>
+                        <View style={styles.avatarContainer}>
+                            <View style={styles.profileAvatar}>
+                                {user.profileImage ? (
+                                    <Image
+                                        source={{ uri: `${BASE_URL}${user.profileImage}` }}
+                                        style={styles.avatarImage}
+                                    />
+                                ) : (
+                                    <Text style={styles.avatarText}>
+                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                    </Text>
+                                )}
+                            </View>
+                            {!isEditing && (
+                                <View style={styles.avatarBadge}>
+                                    <Icon name="check-circle" size={14} color="#fff" />
+                                </View>
+                            )}
+                        </View>
+
+                        {!isEditing ? (
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.profileNameHeader}>{user.name}</Text>
+                                {/* <View style={styles.profileMeta}>
+                                <Icon name="envelope" size={12} color={COLORS.secondary} />
+                                <Text style={styles.profileEmailHeader}>{user.email}</Text>
+                            </View> */}
+
+                            </View>
+                        ) : (
+                            <TouchableOpacity onPress={onUpdateImage} style={styles.editAvatarNote}>
+                                <Icon name="camera" size={20} color={COLORS.secondary} />
+                                <Text style={styles.editAvatarText}>Tap to update photo</Text>
                             </TouchableOpacity>
                         )}
                     </View>
-                    <Text style={styles.sectionSubtitle}>Manage your personal information</Text>
-                </View>
-                <View style={styles.headerDecoration}>
-                    <View style={[styles.decorationCircle, { backgroundColor: COLORS.primary + '20' }]} />
-                    <View style={[styles.decorationCircle, { backgroundColor: COLORS.secondary + '20', top: 10, left: 30 }]} />
-                </View>
-            </View>
 
-            {/* Profile Card with Modern Layout */}
-            <View style={styles.profileCard}>
-                {/* Avatar Section with Gradient Background */}
-                <View style={styles.profileHeader}>
-                    <View style={styles.avatarContainer}>
-                        <View style={styles.profileAvatar}>
-                            {user.profileImage ? (
-                                <Image
-                                    source={{ uri: `${BASE_URL}${user.profileImage}` }}
-                                    style={styles.avatarImage}
+                    {/* Content Area */}
+                    {isEditing ? (
+                        <View style={styles.editForm}>
+                            {/* Form with Modern Inputs */}
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputLabelContainer}>
+                                    <Icon name="user" size={14} color={COLORS.primary} />
+                                    <Text style={styles.inputLabel}>Full Name</Text>
+                                </View>
+                                <TextInput
+                                    style={[styles.input, styles.inputWithIcon]}
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="Enter your full name"
+                                    placeholderTextColor="#999"
+                                    onFocus={animateInputFocus}
                                 />
-                            ) : (
-                                <Text style={styles.avatarText}>
-                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                                </Text>
-                            )}
-                        </View>
-                        {!isEditing && (
-                            <View style={styles.avatarBadge}>
-                                <Icon name="check-circle" size={14} color="#fff" />
-                            </View>
-                        )}
-                    </View>
-
-                    {!isEditing ? (
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.profileNameHeader}>{user.name}</Text>
-                            <View style={styles.profileMeta}>
-                                <Icon name="envelope" size={12} color={COLORS.secondary} />
-                                <Text style={styles.profileEmailHeader}>{user.email}</Text>
                             </View>
 
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputLabelContainer}>
+                                    <Icon name="envelope" size={14} color={COLORS.primary} />
+                                    <Text style={styles.inputLabel}>Email Address</Text>
+                                </View>
+                                <TextInput
+                                    style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
+                                    value={user.email}
+                                    editable={false}
+                                    placeholder="Email Address"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputLabelContainer}>
+                                    <Icon name="phone-alt" size={14} color={COLORS.primary} />
+                                    <Text style={styles.inputLabel}>Phone Number</Text>
+                                </View>
+                                <TextInput
+                                    style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
+                                    value={phone}
+                                    editable={false}
+                                    placeholder="+1 (555) 123-4567"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputLabelContainer}>
+                                    <Icon name="map-marker-alt" size={14} color={COLORS.primary} />
+                                    <Text style={styles.inputLabel}>Address</Text>
+                                </View>
+                                <TextInput
+                                    style={[styles.input, styles.inputWithIcon, styles.textArea]}
+                                    value={address}
+                                    onChangeText={setAddress}
+                                    placeholder="Enter your complete address"
+                                    placeholderTextColor="#999"
+                                    multiline
+                                    numberOfLines={3}
+                                    textAlignVertical="top"
+                                />
+                            </View>
+
+                            {/* Action Buttons */}
+                            <View style={styles.editActions}>
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.cancelButton]}
+                                    onPress={() => setIsEditing(false)}
+                                >
+                                    <Icon name="times" size={16} color={COLORS.secondary} />
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.saveButton]}
+                                    onPress={handleSave}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Icon name="check" size={16} color="#fff" />
+                                            <Text style={styles.saveButtonText}>Save Changes</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     ) : (
-                        <TouchableOpacity onPress={onUpdateImage} style={styles.editAvatarNote}>
-                            <Icon name="camera" size={20} color={COLORS.secondary} />
-                            <Text style={styles.editAvatarText}>Tap to update photo</Text>
-                        </TouchableOpacity>
+                        <View style={styles.profileDetails}>
+                            {/* Info Cards */}
+                            <View style={styles.infoCard}>
+                                <View style={styles.infoCardHeader}>
+                                    <Icon name="id-card" size={16} color={COLORS.primary} />
+                                    <Text style={styles.infoCardTitle}>Personal Information</Text>
+                                </View>
+
+                                <View style={styles.infoGrid}>
+                                    <View style={styles.infoItem}>
+                                        <View style={styles.infoLabelContainer}>
+                                            <Icon name="user-circle" size={14} color={COLORS.secondary} />
+                                            <Text style={styles.infoLabel}>Full Name</Text>
+                                        </View>
+                                        <Text style={styles.infoValue}>{user.name}</Text>
+                                    </View>
+
+                                    <View style={styles.infoItem}>
+                                        <View style={styles.infoLabelContainer}>
+                                            <Icon name="phone" size={14} color={COLORS.secondary} />
+                                            <Text style={styles.infoLabel}>Phone</Text>
+                                        </View>
+                                        <Text style={[
+                                            styles.infoValue,
+                                            !user.phone && styles.infoValueEmpty
+                                        ]}>
+                                            {user.phone || 'Not set'}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.infoItem}>
+                                        <View style={styles.infoLabelContainer}>
+                                            <Icon name="map-pin" size={14} color={COLORS.secondary} />
+                                            <Text style={styles.infoLabel}>Address</Text>
+                                        </View>
+                                        <Text style={[
+                                            styles.infoValue,
+                                            styles.infoValueMultiline,
+                                            !user.address && styles.infoValueEmpty
+                                        ]}>
+                                            {user.address || 'Not provided'}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            <View style={styles.infoCard}>
+
+
+                                <View style={styles.infoItem}>
+                                    <View style={styles.infoLabelContainer}>
+                                        <Icon name="envelope" size={14} color={COLORS.secondary} />
+                                        <Text style={styles.infoLabel}>Email Address</Text>
+                                    </View>
+                                    <Text style={styles.infoValue}>{user.email}</Text>
+                                </View>
+
+
+                            </View>
+
+
+                        </View>
                     )}
                 </View>
 
-                {/* Content Area */}
-                {isEditing ? (
-                    <View style={styles.editForm}>
-                        {/* Form with Modern Inputs */}
-                        <View style={styles.inputGroup}>
-                            <View style={styles.inputLabelContainer}>
-                                <Icon name="user" size={14} color={COLORS.primary} />
-                                <Text style={styles.inputLabel}>Full Name</Text>
-                            </View>
-                            <TextInput
-                                style={[styles.input, styles.inputWithIcon]}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Enter your full name"
-                                placeholderTextColor="#999"
-                                onFocus={animateInputFocus}
-                            />
-                        </View>
+                {/* Logout Button */}
+                {!isEditing && (
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={onLogout}
+                    >
+                        <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
+                        <Text style={styles.logoutText}>Sign Out</Text>
+                    </TouchableOpacity>
+                )}
 
-                        <View style={styles.inputGroup}>
-                            <View style={styles.inputLabelContainer}>
-                                <Icon name="envelope" size={14} color={COLORS.primary} />
-                                <Text style={styles.inputLabel}>Email Address</Text>
-                            </View>
-                            <TextInput
-                                style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
-                                value={user.email}
-                                editable={false}
-                                placeholder="Email Address"
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <View style={styles.inputLabelContainer}>
-                                <Icon name="phone-alt" size={14} color={COLORS.primary} />
-                                <Text style={styles.inputLabel}>Phone Number</Text>
-                            </View>
-                            <TextInput
-                                style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
-                                value={phone}
-                                editable={false}
-                                placeholder="+1 (555) 123-4567"
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <View style={styles.inputLabelContainer}>
-                                <Icon name="map-marker-alt" size={14} color={COLORS.primary} />
-                                <Text style={styles.inputLabel}>Address</Text>
-                            </View>
-                            <TextInput
-                                style={[styles.input, styles.inputWithIcon, styles.textArea]}
-                                value={address}
-                                onChangeText={setAddress}
-                                placeholder="Enter your complete address"
-                                placeholderTextColor="#999"
-                                multiline
-                                numberOfLines={3}
-                                textAlignVertical="top"
-                            />
-                        </View>
-
-                        {/* Action Buttons */}
-                        <View style={styles.editActions}>
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.cancelButton]}
-                                onPress={() => setIsEditing(false)}
-                            >
-                                <Icon name="times" size={16} color={COLORS.secondary} />
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.saveButton]}
-                                onPress={handleSave}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" size="small" />
-                                ) : (
-                                    <>
-                                        <Icon name="check" size={16} color="#fff" />
-                                        <Text style={styles.saveButtonText}>Save Changes</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ) : (
-                    <View style={styles.profileDetails}>
-                        {/* Info Cards */}
-                        <View style={styles.infoCard}>
-                            <View style={styles.infoCardHeader}>
-                                <Icon name="id-card" size={16} color={COLORS.primary} />
-                                <Text style={styles.infoCardTitle}>Personal Information</Text>
-                            </View>
-
-                            <View style={styles.infoGrid}>
-                                <View style={styles.infoItem}>
-                                    <View style={styles.infoLabelContainer}>
-                                        <Icon name="user-circle" size={14} color={COLORS.secondary} />
-                                        <Text style={styles.infoLabel}>Full Name</Text>
-                                    </View>
-                                    <Text style={styles.infoValue}>{user.name}</Text>
-                                </View>
-
-                                <View style={styles.infoItem}>
-                                    <View style={styles.infoLabelContainer}>
-                                        <Icon name="phone" size={14} color={COLORS.secondary} />
-                                        <Text style={styles.infoLabel}>Phone</Text>
-                                    </View>
-                                    <Text style={[
-                                        styles.infoValue,
-                                        !user.phone && styles.infoValueEmpty
-                                    ]}>
-                                        {user.phone || 'Not set'}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.infoItem}>
-                                    <View style={styles.infoLabelContainer}>
-                                        <Icon name="map-pin" size={14} color={COLORS.secondary} />
-                                        <Text style={styles.infoLabel}>Address</Text>
-                                    </View>
-                                    <Text style={[
-                                        styles.infoValue,
-                                        styles.infoValueMultiline,
-                                        !user.address && styles.infoValueEmpty
-                                    ]}>
-                                        {user.address || 'Not provided'}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.infoCard}>
-
-
-                            <View style={styles.infoItem}>
-                                <View style={styles.infoLabelContainer}>
-                                    <Icon name="envelope" size={14} color={COLORS.secondary} />
-                                    <Text style={styles.infoLabel}>Email Address</Text>
-                                </View>
-                                <Text style={styles.infoValue}>{user.email}</Text>
-                            </View>
-
-
-                        </View>
-
-
+                {/* Footer Note */}
+                {!isEditing && (
+                    <View style={styles.footerNote}>
+                        <Icon name="info-circle" size={14} color={COLORS.secondary} />
+                        <Text style={styles.footerNoteText}>
+                            Your information is secured and encrypted
+                        </Text>
                     </View>
                 )}
-            </View>
-
-            {/* Logout Button */}
-            {!isEditing && (
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={onLogout}
-                >
-                    <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
-                    <Text style={styles.logoutText}>Sign Out</Text>
-                </TouchableOpacity>
-            )}
-
-            {/* Footer Note */}
-            {!isEditing && (
-                <View style={styles.footerNote}>
-                    <Icon name="info-circle" size={14} color={COLORS.secondary} />
-                    <Text style={styles.footerNoteText}>
-                        Your information is secured and encrypted
-                    </Text>
-                </View>
-            )}
-        </ScrollView>
+            </ScrollView>
+            <LinearGradient
+                colors={['rgba(248, 249, 250, 0)', '#f8f9fa']}
+                style={styles.bottomFade}
+                pointerEvents="none"
+            />
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    wrapper: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
     content: {
         flexGrow: 1,
         padding: 20,
-        paddingBottom: 40,
-        backgroundColor: COLORS.inputBackground,
+        paddingBottom: 100,
+        backgroundColor: '#f8f9fa',
     },
     headerContainer: {
         marginBottom: 25,
@@ -696,6 +721,14 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginLeft: 4,
     },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 60,
+        zIndex: 20
+    }
 });
 
 export default ProfileTab;

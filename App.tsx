@@ -15,6 +15,8 @@ import MerchantDetailsScreen from './src/screens/MerchantDetailsScreen';
 import IntroScreen from './src/screens/IntroScreen';
 import { COLORS } from './src/styles/theme';
 import FCMService from './src/services/FCMService';
+import SchoolHubAd from './src/components/SchoolHubAd';
+import QuickproAd from './src/components/QuickproAd';
 
 
 type Role = 'merchant' | 'user';
@@ -35,6 +37,40 @@ function App() {
   const [user, setUser] = useState<UserData | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
   const [dashboardStartTab, setDashboardStartTab] = useState<string>('dashboard');
+  const [showAd, setShowAd] = useState(false);
+  const [selectedAd, setSelectedAd] = useState<'quickpro' | 'schoolhub'>('quickpro');
+  const [areAdsPaused, setAreAdsPaused] = useState(false);
+
+  const pauseAds = () => {
+    setAreAdsPaused(true);
+    setShowAd(false); // Hide ongoing ad if any
+  };
+
+  const resumeAds = () => {
+    setAreAdsPaused(false);
+  };
+
+  // Ad Logic
+  React.useEffect(() => {
+    let adInterval: any;
+    if (user && !areAdsPaused) {
+      // Trigger ad every 5 minutes (300000 ms)
+      // Initial delay of 1 minute to avoid showing immediately on login
+      const timeout = setTimeout(() => {
+        setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
+        setShowAd(true);
+        adInterval = setInterval(() => {
+          setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
+          setShowAd(true);
+        }, 60000);
+      }, 60000); // 1 minute delay before first ad
+
+      return () => {
+        clearTimeout(timeout);
+        clearInterval(adInterval);
+      };
+    }
+  }, [user, areAdsPaused]);
 
   // ... handlers ...
 
@@ -116,6 +152,9 @@ function App() {
           <MerchantDashboardScreen
             user={user}
             onLogout={handleLogout}
+            onUserUpdate={(updatedUser: any) => setUser(updatedUser)}
+            pauseAds={pauseAds}
+            resumeAds={resumeAds}
           />
         );
       case 'USER_DASHBOARD':
@@ -152,6 +191,20 @@ function App() {
           translucent
         />
         {renderScreen()}
+        {selectedAd === 'schoolhub' && (
+          <SchoolHubAd
+            visible={showAd}
+            onClose={() => setShowAd(false)}
+            variant={user?.role === 'merchant' && user?.plan === 'Premium' ? 'banner' : 'full'}
+          />
+        )}
+        {selectedAd === 'quickpro' && (
+          <QuickproAd
+            visible={showAd}
+            onClose={() => setShowAd(false)}
+            variant={user?.role === 'merchant' && user?.plan === 'Premium' ? 'banner' : 'full'}
+          />
+        )}
         <Toast />
       </View>
     </SafeAreaProvider>

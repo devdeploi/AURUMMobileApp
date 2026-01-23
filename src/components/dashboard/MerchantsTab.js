@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -7,19 +7,58 @@ import {
     TouchableOpacity,
     FlatList,
     ActivityIndicator,
-    Image
+    Image,
+    RefreshControl,
+    TextInput,
+    Animated,
+    LayoutAnimation
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
 import { SkeletonItem } from '../SkeletonLoader';
 
 
-const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMore }) => {
-    // Filter only approved merchants
-    const approvedMerchants = merchants.filter(m => m.status === 'Approved');
+const MerchantsTab = ({ merchants, refreshing,
+    onRefresh, loading, onLoadMore, onSelectMerchant, hasMore }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchVisible, setIsSearchVisible] = useState(false);
+    const searchAnimation = useRef(new Animated.Value(0)).current;
 
-    if (loading && approvedMerchants.length === 0) {
+    const toggleSearch = () => {
+        if (isSearchVisible) {
+            // Hide
+            Animated.timing(searchAnimation, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: false,
+            }).start(() => setIsSearchVisible(false));
+        } else {
+            // Show
+            setIsSearchVisible(true);
+            Animated.timing(searchAnimation, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: false,
+            }).start();
+        }
+    };
+
+    // Filter by status AND search query
+    const approvedMerchants = merchants.filter(m => {
+        const isApproved = m.status === 'Approved';
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            (m.name && m.name.toLowerCase().includes(query)) ||
+            (m.phone && m.phone.includes(query)) ||
+            (m.phoneNumber && m.phoneNumber.includes(query)) || // Handle potential different key
+            (m.shopName && m.shopName.toLowerCase().includes(query)); // Handle potential shop name key
+
+        return isApproved && matchesSearch;
+    });
+
+    if (loading && approvedMerchants.length === 0 && !searchQuery) {
         return (
             <View style={styles.container}>
                 <View style={styles.headerContainer}>
@@ -96,20 +135,64 @@ const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMor
     return (
         <View style={styles.container}>
             <View style={styles.headerContainer}>
-                <Text style={styles.sectionTitle}>Available Merchants</Text>
-                <Text style={styles.sectionSubtitle}>
-                    {approvedMerchants.length} merchant{approvedMerchants.length !== 1 ? 's' : ''} nearby
-                </Text>
+                <View style={styles.headerRow}>
+                    <View>
+                        <Text style={styles.sectionTitle}>Available Merchants</Text>
+                        <Text style={styles.sectionSubtitle}>
+                            {approvedMerchants.length} merchant{approvedMerchants.length !== 1 ? 's' : ''} found
+                        </Text>
+                    </View>
+                    <TouchableOpacity onPress={toggleSearch} style={styles.iconButton}>
+                        <Icon name={isSearchVisible ? "times" : "search"} size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Animated Search Bar */}
+                {isSearchVisible && (
+                    <Animated.View style={[
+                        styles.searchWrapper,
+                        {
+                            opacity: searchAnimation,
+                            height: searchAnimation.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 50]
+                            }),
+                            transform: [{
+                                translateY: searchAnimation.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [-20, 0]
+                                })
+                            }]
+                        }
+                    ]}>
+                        <View style={styles.searchContainer}>
+                            <Icon name="search" size={16} color={COLORS.secondary} style={styles.searchIcon} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search by name, shop or phone..."
+                                placeholderTextColor={COLORS.secondary}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                autoCapitalize="none"
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                                    <Icon name="times-circle" size={16} color={COLORS.secondary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </Animated.View>
+                )}
             </View>
 
             {approvedMerchants.length === 0 ? (
                 <View style={styles.emptyState}>
                     <View style={styles.emptyIcon}>
-                        <Icon name="store-slash" size={40} color={COLORS.light} />
+                        <Icon name="search" size={40} color={COLORS.light} />
                     </View>
-                    <Text style={styles.emptyTitle}>No Merchants Available</Text>
+                    <Text style={styles.emptyTitle}>No Merchants Found</Text>
                     <Text style={styles.emptySubtitle}>
-                        There are currently no approved merchants in your area
+                        Try adjusting your search or check back later.
                     </Text>
                 </View>
             ) : (
@@ -121,6 +204,14 @@ const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMor
                     onEndReached={onLoadMore}
                     onEndReachedThreshold={0.3}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[COLORS.primary]}     // Android
+                            tintColor={COLORS.primary}    // iOS
+                        />
+                    }
                     ListFooterComponent={
                         loading && merchants.length > 0 ? (
                             <View style={styles.loaderContainer}>
@@ -131,6 +222,11 @@ const MerchantsTab = ({ merchants, loading, onLoadMore, onSelectMerchant, hasMor
                     }
                 />
             )}
+            <LinearGradient
+                colors={['rgba(250, 251, 252, 0)', '#FAFBFC']}
+                style={styles.bottomFade}
+                pointerEvents="none"
+            />
         </View>
     );
 };
@@ -159,6 +255,48 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: COLORS.secondary,
         letterSpacing: 0.3,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F5F7FA', // Light circular background
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    // Search Bar Styles
+    searchWrapper: {
+        overflow: 'hidden',
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F5F7FA', // Light grey background
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        height: 45,
+        // marginTop: 5, // Removed, handled by parent spacing or animations
+        borderWidth: 1,
+        borderColor: '#E1E4E8'
+    },
+    searchIcon: {
+        marginRight: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: COLORS.dark,
+        height: '100%',
+        paddingVertical: 0
+    },
+    clearButton: {
+        padding: 5
     },
     listContent: {
         paddingHorizontal: 24,
@@ -328,6 +466,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#F5F7FA',
     },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 60,
+        zIndex: 20
+    }
 });
 
 export default MerchantsTab;

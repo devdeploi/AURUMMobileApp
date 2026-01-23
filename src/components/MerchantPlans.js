@@ -6,11 +6,12 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-
     StyleSheet,
     Modal,
-    TextInput
+    TextInput,
+    RefreshControl
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Slider from '@react-native-community/slider';
@@ -19,7 +20,7 @@ import { APIURL } from '../constants/api';
 import Toast from 'react-native-toast-message';
 import CustomAlert from './CustomAlert';
 
-const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
+const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const PLANS_PER_PAGE = 5;
@@ -146,6 +147,49 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
         setShowDetailsModal(true);
     };
 
+
+
+    const handleDeletePlan = (planId) => {
+        setAlertConfig({
+            visible: true,
+            title: 'Delete Plan',
+            message: 'Are you sure you want to delete this plan? This action cannot be undone.',
+            type: 'warning',
+            buttons: [
+                { text: 'Cancel', style: 'cancel', onPress: () => { } },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => confirmDelete(planId)
+                }
+            ]
+        });
+    };
+
+    const confirmDelete = async (planId) => {
+        try {
+            const token = user.token;
+            await axios.delete(`${APIURL}/chit-plans/${planId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Plan deleted successfully'
+            });
+            if (onRefresh) {
+                onRefresh();
+            }
+        } catch (error) {
+            console.error(error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete plan. Ensure it has no active subscriptions.'
+            });
+        }
+    };
+
     const handleNextPage = () => {
         if (currentPage < totalPages) setCurrentPage(p => p + 1);
     };
@@ -158,7 +202,12 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
 
     return (
         <View style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={styles.contentContainer}>
+            <ScrollView
+                contentContainerStyle={styles.contentContainer}
+                refreshControl={
+                    <RefreshControl refreshing={loadingPlans} onRefresh={onRefresh} colors={[COLORS.primary]} />
+                }
+            >
                 <Text style={styles.sectionTitle}>My Chit Plans ({plans.length}/{planLimit})</Text>
 
                 {/* Plan Limit / Bank Verified Warning */}
@@ -223,6 +272,12 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
                                     >
                                         <Icon name="edit" size={12} color="#fff" />
                                         <Text style={styles.editButtonText}>Edit</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.actionButton, styles.deleteButton]}
+                                        onPress={() => handleDeletePlan(plan._id)}
+                                    >
+                                        <Icon name="trash" size={12} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -410,6 +465,11 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated }) => {
                     </View>
                 </View>
             </Modal>
+            <LinearGradient
+                colors={['rgba(248, 250, 252, 0)', '#F8FAFC']}
+                style={styles.bottomFade}
+                pointerEvents="none"
+            />
         </View>
     );
 };
@@ -528,13 +588,19 @@ const styles = StyleSheet.create({
     },
     editButton: {
         backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary
+        borderColor: COLORS.primary,
+        flex: 2
     },
     editButtonText: {
         color: '#fff',
         fontWeight: '600',
         fontSize: 13,
         marginLeft: 6
+    },
+    deleteButton: {
+        backgroundColor: COLORS.danger,
+        borderColor: COLORS.danger,
+        flex: 0.8
     },
     addPlanButton: {
         flexDirection: 'row',
@@ -720,6 +786,14 @@ const styles = StyleSheet.create({
     descriptionText: {
         color: '#333',
         fontSize: 14
+    },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 60,
+        zIndex: 20
     }
 });
 

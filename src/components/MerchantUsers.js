@@ -12,15 +12,27 @@ import {
     Linking,
     TextInput,
     ScrollView,
-    RefreshControl
+    RefreshControl,
+    LayoutAnimation,
+    Platform,
+    UIManager
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
 import { APIURL, BASE_URL } from '../constants/api';
 import CustomAlert from './CustomAlert';
 
+if (Platform.OS === 'android') {
+    if (UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+}
+
 const MerchantUsers = ({ user }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
     const [loading, setLoading] = useState(true);
     const [subscribers, setSubscribers] = useState([]);
     const [pendingPayments, setPendingPayments] = useState([]);
@@ -109,6 +121,22 @@ const MerchantUsers = ({ user }) => {
         setRefreshing(true);
         fetchData();
     };
+
+    const toggleSearch = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setShowSearch(!showSearch);
+        if (showSearch) setSearchQuery('');
+    };
+
+    const filteredSubscribers = React.useMemo(() => {
+        if (!searchQuery) return subscribers;
+        const lower = searchQuery.toLowerCase();
+        return subscribers.filter(sub =>
+            (sub.user?.name?.toLowerCase() || '').includes(lower) ||
+            (sub.user?.phone || '').includes(lower) ||
+            (sub.plan?.planName?.toLowerCase() || '').includes(lower)
+        );
+    }, [subscribers, searchQuery]);
 
     // --- Handlers ---
 
@@ -382,7 +410,9 @@ const MerchantUsers = ({ user }) => {
         <View style={styles.container}>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+                }
             >
                 {/* Pending Payments Section */}
                 {pendingPayments.length > 0 && (
@@ -403,20 +433,44 @@ const MerchantUsers = ({ user }) => {
                 {/* Subscribers Section */}
                 <View style={[styles.section, { marginTop: pendingPayments.length > 0 ? 20 : 0 }]}>
                     <View style={styles.sectionHeader}>
-                        <Icon name="users" size={16} color={COLORS.primary} />
-                        <Text style={styles.sectionTitle}>User Subscriptions</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                            <Icon name="users" size={16} color={COLORS.primary} />
+                            <Text style={styles.sectionTitle}>User Subscriptions</Text>
+                        </View>
+                        <TouchableOpacity onPress={toggleSearch} style={styles.searchToggle}>
+                            <Icon name={showSearch ? "times" : "search"} size={18} color={COLORS.primary} />
+                        </TouchableOpacity>
                     </View>
+
+                    {showSearch && (
+                        <View style={styles.searchContainer}>
+                            <Icon name="search" size={14} color="#9CA3AF" style={{ marginRight: 10 }} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search by Name, Phone, or Plan..."
+                                placeholderTextColor="#9CA3AF"
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                autoFocus={true}
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                    <Icon name="times-circle" size={14} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
 
                     {loading ? (
                         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-                    ) : subscribers.length === 0 ? (
+                    ) : filteredSubscribers.length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <Icon name="users-slash" size={40} color={COLORS.secondary} />
-                            <Text style={styles.emptyText}>No subscribers found.</Text>
+                            <Text style={styles.emptyText}>{searchQuery ? 'No users matching search.' : 'No subscribers found.'}</Text>
                         </View>
                     ) : (
                         <FlatList
-                            data={subscribers}
+                            data={filteredSubscribers}
                             renderItem={renderSubscriber}
                             keyExtractor={item => item.user._id + item.plan._id}
                             scrollEnabled={false}
@@ -424,6 +478,12 @@ const MerchantUsers = ({ user }) => {
                     )}
                 </View>
             </ScrollView>
+
+            <LinearGradient
+                colors={['rgba(248, 249, 250, 0)', '#f8f9fa']}
+                style={styles.bottomFade}
+                pointerEvents="none"
+            />
 
             {/* Custom Alert */}
             <CustomAlert
@@ -586,7 +646,7 @@ const MerchantUsers = ({ user }) => {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </View >
     );
 };
 
@@ -597,7 +657,15 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
-        paddingBottom: 40,
+        paddingBottom: 100,
+    },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 80,
+        zIndex: 100
     },
     section: {
         marginBottom: 10,
@@ -999,6 +1067,38 @@ const styles = StyleSheet.create({
     historyStatus: {
         fontSize: 12,
         marginTop: 2,
+    },
+    // Search Styles
+    searchToggle: {
+        padding: 5,
+        backgroundColor: '#EDF2F7',
+        borderRadius: 20,
+        width: 32,
+        height: 32,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        height: 46,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 }
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: COLORS.dark,
+        height: '100%'
     },
 });
 
