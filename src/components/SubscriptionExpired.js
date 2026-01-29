@@ -101,7 +101,6 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
             // 2. Open Razorpay
             const options = {
                 description: `Renew ${selectedPlan} Plan (${billingCycle})`,
-                image: 'https://your-logo-url.png', // Optional
                 currency: order.currency,
                 key: keyId || 'rzp_test_S6RoMCiZCpsLo7',
                 amount: order.amount,

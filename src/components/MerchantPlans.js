@@ -50,9 +50,15 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
     };
 
     // Derived State
-    const isBankVerified = user?.bankDetails?.verificationStatus === 'verified';
+    const isKycVerified =
+        user?.bankDetails?.accountNumber &&
+        user?.bankDetails?.ifscCode &&
+        user?.bankDetails?.accountHolderName &&
+        user?.legalName &&
+        user?.panNumber;
+
     const planLimit = user?.plan === 'Premium' ? 6 : 3;
-    const canCreatePlan = isBankVerified && plans.length < planLimit;
+    const canCreatePlan = isKycVerified && plans.length < planLimit;
 
     // Pagination Logic
     const totalPages = Math.ceil(plans.length / PLANS_PER_PAGE);
@@ -210,11 +216,11 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
             >
                 <Text style={styles.sectionTitle}>My Chit Plans ({plans.length}/{planLimit})</Text>
 
-                {/* Plan Limit / Bank Verified Warning */}
-                {!isBankVerified && (
+                {/* Plan Limit / KYC Warning */}
+                {!isKycVerified && (
                     <View style={styles.warningBanner}>
                         <Icon name="exclamation-triangle" size={14} color="#C05621" />
-                        <Text style={styles.warningText}>Verify your bank account to create plans.</Text>
+                        <Text style={styles.warningText}>Complete Profile KYC (Bank & PAN) to create plans.</Text>
                     </View>
                 )}
 
@@ -304,8 +310,8 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                         if (canCreatePlan) {
                             resetForm();
                             setShowCreatePlanModal(true);
-                        } else if (!isBankVerified) {
-                            setAlertConfig({ visible: true, title: "Restriction", message: "Please verify your bank account first.", type: 'warning' });
+                        } else if (!isKycVerified) {
+                            setAlertConfig({ visible: true, title: "KYC Pending", message: "Please complete your Bank and PAN details in Profile first.", type: 'warning' });
                         } else {
                             setAlertConfig({ visible: true, title: "Limit Reached", message: "You have reached your plan limit. Upgrade to Premium for more.", type: 'error' });
                         }
@@ -314,7 +320,7 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                 >
                     <Icon name="plus" size={16} color={canCreatePlan ? COLORS.primary : '#999'} style={styles.planDetailIcon} />
                     <Text style={[styles.addPlanText, !canCreatePlan && { color: '#999' }]}>
-                        Create New Plan {isBankVerified && `(${plans.length}/${planLimit})`}
+                        Create New Plan {isKycVerified && `(${plans.length}/${planLimit})`}
                     </Text>
                 </TouchableOpacity>
 

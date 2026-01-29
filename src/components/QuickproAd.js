@@ -150,12 +150,8 @@ const QuickproAd = ({ visible, onClose, variant = 'full' }) => {
 
                     <View style={styles.topActions}>
                         <View style={styles.sponsoredTag}>
-                            <Image
-                                source={require('../../public/assests/QuickProLogo.png')}
-                                style={{ width: 14, height: 14, marginRight: 6, tintColor: '#fff' }}
-                                resizeMode="contain"
-                            />
-                            <Text style={styles.sponsoredText}>Sponsored by Safpro</Text>
+
+                            <Text style={styles.sponsoredText}>Sponsored</Text>
                         </View>
 
                         <View style={styles.timerBadge}>

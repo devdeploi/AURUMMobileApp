@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import axios from 'axios';
-import { APIURL } from '../constants/api';
+import { APIURL, BASE_URL } from '../constants/api';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
 import RazorpayCheckout from 'react-native-razorpay';
@@ -143,6 +143,13 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                 bankDetails: data.bankDetails || { accountNumber: '', ifscCode: '', accountHolderName: '' },
                 shopImages: data.shopImages || []
             };
+
+            // Check if plan or other critical data changed before updating parent
+            // This ensures App.tsx user state stays in sync with latest DB profile
+            if (onUserUpdate && (safeData.plan !== user.plan || safeData.subscriptionStatus !== user.subscriptionStatus)) {
+                onUserUpdate({ ...user, ...safeData });
+            }
+
             setProfileData(prev => ({ ...prev, ...safeData }));
         } catch (error) {
             console.error("Error fetching profile", error);
@@ -178,6 +185,18 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                 return;
             }
 
+            // PAN Validation
+            const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+            if (updatedData.panNumber && !panRegex.test(updatedData.panNumber.toUpperCase())) {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Validation Error',
+                    message: 'Invalid PAN Format. Example: ABCDE1234F',
+                    type: 'warning'
+                });
+                return;
+            }
+
             setUpdatingProfile(true);
             const token = user.token;
             const id = user._id || user.id;
@@ -187,8 +206,11 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                 name: updatedData.name,
                 address: updatedData.address,
                 gstin: updatedData.gstin,
+                legalName: updatedData.legalName,
+                panNumber: updatedData.panNumber,
                 bankDetails: updatedData.bankDetails,
                 shopImages: updatedData.shopImages,
+                shopLogo: updatedData.shopLogo,
                 // Add validation or other fields as necessary
                 phone: updatedData.phone, // Usually read-only but might need ensuring
                 email: updatedData.email  // Usually read-only
@@ -295,6 +317,8 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
             setProfileData(prev => {
                 if (docType === 'addressProof') {
                     return { ...prev, addressProof: imagePath };
+                } else if (docType === 'shopLogo') {
+                    return { ...prev, shopLogo: imagePath };
                 } else {
                     const currentImages = prev.shopImages || [];
                     return { ...prev, shopImages: [...currentImages, imagePath] };
@@ -369,7 +393,6 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
             // Ensure amount is an integer (paise) and currency is set
             const options = {
                 description: `Upgrade to Premium Plan (${billingCycle})`,
-                image: 'https://aurum-assets.s3.ap-south-1.amazonaws.com/aurum.png', // Logo
                 currency: order.currency || 'INR',
                 key: keyId || 'rzp_test_S6RoMCiZCpsLo7', // Fallback key if server doesn't send one
                 amount: order.amount, // Amount in paise

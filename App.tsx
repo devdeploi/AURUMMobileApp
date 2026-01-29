@@ -163,6 +163,7 @@ function App() {
             user={user}
             onLogout={handleLogout}
             onSelectMerchant={handleSelectMerchant}
+            onUserUpdate={(updatedUser: any) => setUser(updatedUser)}
             initialTab={dashboardStartTab}
           />
         );

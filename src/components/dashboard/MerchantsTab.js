@@ -88,7 +88,13 @@ const MerchantsTab = ({ merchants, refreshing,
             activeOpacity={0.7}
         >
             <View style={styles.imageContainer}>
-                {item.shopImages && item.shopImages.length > 0 ? (
+                {item.shopLogo ? (
+                    <Image
+                        source={{ uri: `${BASE_URL}${item.shopLogo}` }}
+                        style={styles.merchantImage}
+                        resizeMode="cover"
+                    />
+                ) : item.shopImages && item.shopImages.length > 0 ? (
                     <Image
                         source={{ uri: `${BASE_URL}${item.shopImages[0]}` }}
                         style={styles.merchantImage}

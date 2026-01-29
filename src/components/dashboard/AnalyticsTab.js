@@ -62,6 +62,8 @@ const AnalyticsTab = ({ user }) => {
             setRefreshing(false);
         }
     }, [user]);
+    console.log(plans);
+    
 
     useEffect(() => {
         if (user && user.token) {
@@ -162,8 +164,12 @@ const AnalyticsTab = ({ user }) => {
     };
 
 
+
+
     const handlePayInstallment = async (plan) => {
         setPayingId(plan._id);
+        console.log(plan);
+
         try {
             const config = {
                 headers: { Authorization: `Bearer ${user.token}` }
@@ -176,10 +182,11 @@ const AnalyticsTab = ({ user }) => {
                 chitPlanId: plan._id
             }, config);
 
+
             // 2. Open Razorpay
             const options = {
                 description: `Installment for ${plan.planName}`,
-                image: plan.merchant?.shopImages?.[0] ? `${BASE_URL}${plan.merchant.shopImages[0]}` : undefined,
+                image: plan.merchant?.shopLogo ? `${BASE_URL}${plan.merchant.shopLogo}` : undefined,
                 currency: 'INR',
                 key: 'rzp_test_S6RoMCiZCpsLo7', // Replace with valid env key if available
                 amount: order.amount,
@@ -255,12 +262,17 @@ const AnalyticsTab = ({ user }) => {
                                 const now = new Date();
                                 const timeDiff = dueDate.getTime() - now.getTime();
                                 diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                            }
 
-                            // Determine if payable (Only if due in < 7 days or overdue)
-                            if (plan.status === 'active') {
-                                if (diffDays <= 7) {
-                                    isPayable = true;
+                                // Determine if payable (Only if current month has reached or passed due month)
+                                if (plan.status === 'active') {
+                                    const currentMonth = now.getMonth();
+                                    const currentYear = now.getFullYear();
+                                    const dueMonth = dueDate.getMonth();
+                                    const dueYear = dueDate.getFullYear();
+
+                                    if (currentYear > dueYear || (currentYear === dueYear && currentMonth >= dueMonth)) {
+                                        isPayable = true;
+                                    }
                                 }
                             }
 
@@ -347,7 +359,7 @@ const AnalyticsTab = ({ user }) => {
 
                                             {/* Payment Buttons */}
                                             <View style={{ gap: 10 }}>
-                                                {plan.status === 'active' && (
+                                                {isPayable && (
                                                     <>
                                                         <TouchableOpacity
                                                             style={[
@@ -364,7 +376,7 @@ const AnalyticsTab = ({ user }) => {
                                                                     styles.payButtonText,
                                                                     diffDays <= 3 ? styles.payButtonTextUrgent : styles.payButtonTextNormal
                                                                 ]}>
-                                                                    Pay Online: ₹{plan.monthlyAmount}
+                                                                    Pay Online: ₹{plan.monthlyAmount} + (2% fee)
                                                                 </Text>
                                                             )}
                                                         </TouchableOpacity>
@@ -380,7 +392,7 @@ const AnalyticsTab = ({ user }) => {
                                                                 styles.outlineButtonText,
                                                                 diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
                                                             ]}>
-                                                                Paid Offline?
+                                                                Paid Offline (No Fee)?
                                                             </Text>
                                                         </TouchableOpacity>
                                                     </>
@@ -389,9 +401,9 @@ const AnalyticsTab = ({ user }) => {
 
                                             {!isPayable && plan.status === 'active' && (
                                                 <View style={[styles.footerRow, { marginTop: 10 }]}>
-                                                    <Icon name="clock" size={12} color={COLORS.secondary} />
-                                                    <Text style={[styles.footerText, { color: COLORS.secondary }]}>
-                                                        Next payment due in {Math.max(0, diffDays)} days
+                                                    <Icon name="info-circle" size={12} color={COLORS.secondary} />
+                                                    <Text style={[styles.footerText, { color: COLORS.secondary, fontSize: 10 }]}>
+                                                        Online payments include a 2% platform fee
                                                     </Text>
                                                 </View>
                                             )}
@@ -426,11 +438,16 @@ const AnalyticsTab = ({ user }) => {
                                                                             {new Date(payment.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                                                         </Text>
                                                                         <Text style={[styles.historyStatus, { color: payment.status === 'Pending Approval' ? 'orange' : '#666' }]}>
-                                                                            {payment.status || 'Paid'}
+                                                                            {payment.status || 'Paid'} {payment.commissionAmount > 0 ? '(Online)' : '(Offline)'}
                                                                         </Text>
                                                                     </View>
                                                                 </View>
-                                                                <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
+                                                                <View style={{ alignItems: 'flex-end' }}>
+                                                                    <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
+                                                                    {payment.commissionAmount > 0 && (
+                                                                        <Text style={{ fontSize: 8, color: COLORS.secondary }}>+ ₹{payment.commissionAmount} fee</Text>
+                                                                    )}
+                                                                </View>
                                                             </View>
                                                         ))
                                                     ) : (

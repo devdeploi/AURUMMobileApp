@@ -107,7 +107,7 @@ const SchoolHubAd = ({ visible, onClose, variant = 'full' }) => {
                                 style={{ width: 12, height: 12, marginRight: 4 }}
                                 resizeMode="contain"
                             />
-                            <Text style={styles.bannerSponsored}>Sponsored by Safpro</Text>
+                            <Text style={styles.bannerSponsored}>Sponsored</Text>
                         </View>
                         <Text style={styles.bannerTitle}>SchoolHub</Text>
                         <Text style={styles.bannerSubtitle}>Smart Management for Schools</Text>
@@ -149,12 +149,8 @@ const SchoolHubAd = ({ visible, onClose, variant = 'full' }) => {
 
                     <View style={styles.topActions}>
                         <View style={styles.sponsoredTag}>
-                            <Image
-                                source={require('../../public/assests/SchoolHubLogo.png')}
-                                style={{ width: 14, height: 14, marginRight: 6, tintColor: '#fff' }}
-                                resizeMode="contain"
-                            />
-                            <Text style={styles.sponsoredText}>Sponsored by Safpro</Text>
+
+                            <Text style={styles.sponsoredText}>Sponsored</Text>
                         </View>
 
                         <View style={styles.timerBadge}>

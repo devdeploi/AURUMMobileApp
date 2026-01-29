@@ -10,12 +10,17 @@ import {
     ActivityIndicator,
     Animated,
     Image,
-    RefreshControl
+    RefreshControl,
+    Platform,
+    Dimensions,
+    KeyboardAvoidingView
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -33,22 +38,6 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
             setRefreshing(false);
         }
     };
-
-    // ... handleSave ...
-
-    // ... animateInputFocus ...
-
-    // Render logic update for avatar section
-    /* 
-       Note: The tool requires me to replace chunks.
-       I will replace the top imports and the component definition first.
-       Then I will replace the Avatar rendering part.
-    */
-
-    /* Actually I will do it in one large chunk if possible or split if needed. The start line is 3. */
-    // Let's stick to doing it correctly.
-
-    /* I'll use multi_replace for safer editing. */
 
     const handleSave = async () => {
         if (!name.trim() || !phone.trim()) {
@@ -75,19 +64,28 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
     };
 
     return (
-        <View style={styles.wrapper}>
+        <KeyboardAvoidingView 
+            style={styles.wrapper}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
             <ScrollView
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={handleRefresh} 
+                        colors={[COLORS.primary]} 
+                        tintColor={COLORS.primary}
+                    />
                 }
             >
                 {/* Modern Header */}
                 <View style={styles.headerContainer}>
                     <View style={styles.headerContent}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10 }}>
-                            <Text style={styles.sectionTitle}>Profile</Text>
+                        <View style={styles.headerTopRow}>
+                            <Text style={styles.sectionTitle}>My Profile</Text>
                             {!isEditing && (
                                 <TouchableOpacity
                                     style={styles.smallEditButton}
@@ -97,26 +95,38 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                         setAddress(user.address || '');
                                         setIsEditing(true);
                                     }}
+                                    activeOpacity={0.7}
                                 >
                                     <Icon name="pen" size={10} color="#fff" />
-                                    <Text style={styles.smallEditText}>Edit</Text>
+                                    <Text style={styles.smallEditText}>EDIT</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
-                        <Text style={styles.sectionSubtitle}>Manage your personal information</Text>
+                        <Text style={styles.sectionSubtitle}>
+                            Manage your personal information
+                        </Text>
                     </View>
                     <View style={styles.headerDecoration}>
-                        <View style={[styles.decorationCircle, { backgroundColor: COLORS.primary + '20' }]} />
-                        <View style={[styles.decorationCircle, { backgroundColor: COLORS.secondary + '20', top: 10, left: 30 }]} />
+                        <LinearGradient
+                            colors={[COLORS.primary + '30', COLORS.secondary + '10']}
+                            style={styles.decorationCircle}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        />
                     </View>
                 </View>
 
-                {/* Profile Card with Modern Layout */}
+                {/* Profile Card */}
                 <View style={styles.profileCard}>
-                    {/* Avatar Section with Gradient Background */}
+                    {/* Avatar Section */}
                     <View style={styles.profileHeader}>
                         <View style={styles.avatarContainer}>
-                            <View style={styles.profileAvatar}>
+                            <LinearGradient
+                                colors={[COLORS.primary, COLORS.secondary]}
+                                style={styles.profileAvatar}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
                                 {user.profileImage ? (
                                     <Image
                                         source={{ uri: `${BASE_URL}${user.profileImage}` }}
@@ -127,89 +137,94 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                         {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                     </Text>
                                 )}
-                            </View>
+                            </LinearGradient>
                             {!isEditing && (
                                 <View style={styles.avatarBadge}>
-                                    <Icon name="check-circle" size={14} color="#fff" />
+                                    <Icon name="check-circle" size={12} color="#fff" />
                                 </View>
                             )}
                         </View>
 
-                        {!isEditing ? (
-                            <View style={styles.profileInfo}>
-                                <Text style={styles.profileNameHeader}>{user.name}</Text>
-                                {/* <View style={styles.profileMeta}>
-                                <Icon name="envelope" size={12} color={COLORS.secondary} />
-                                <Text style={styles.profileEmailHeader}>{user.email}</Text>
-                            </View> */}
-
-                            </View>
-                        ) : (
-                            <TouchableOpacity onPress={onUpdateImage} style={styles.editAvatarNote}>
-                                <Icon name="camera" size={20} color={COLORS.secondary} />
-                                <Text style={styles.editAvatarText}>Tap to update photo</Text>
-                            </TouchableOpacity>
-                        )}
+                        <View style={styles.profileInfo}>
+                            {!isEditing ? (
+                                <>
+                                    <Text style={styles.profileNameHeader}>{user.name}</Text>
+                                    <Text style={styles.profileEmailHeader}>{user.email}</Text>
+                                </>
+                            ) : (
+                                <TouchableOpacity 
+                                    onPress={onUpdateImage} 
+                                    style={styles.editAvatarButton}
+                                    activeOpacity={0.8}
+                                >
+                                    <Icon name="camera" size={16} color={COLORS.primary} />
+                                    <Text style={styles.editAvatarText}>Change Photo</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
 
                     {/* Content Area */}
                     {isEditing ? (
                         <View style={styles.editForm}>
-                            {/* Form with Modern Inputs */}
+                            <Text style={styles.formTitle}>Edit Profile</Text>
+                            
+                            {/* Form Inputs */}
                             <View style={styles.inputGroup}>
-                                <View style={styles.inputLabelContainer}>
-                                    <Icon name="user" size={14} color={COLORS.primary} />
+                                <View style={styles.inputLabelRow}>
+                                    <Icon name="user" size={12} color={COLORS.primary} />
                                     <Text style={styles.inputLabel}>Full Name</Text>
                                 </View>
                                 <TextInput
-                                    style={[styles.input, styles.inputWithIcon]}
+                                    style={styles.input}
                                     value={name}
                                     onChangeText={setName}
                                     placeholder="Enter your full name"
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={COLORS.secondary + '80'}
                                     onFocus={animateInputFocus}
                                 />
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <View style={styles.inputLabelContainer}>
-                                    <Icon name="envelope" size={14} color={COLORS.primary} />
+                                <View style={styles.inputLabelRow}>
+                                    <Icon name="envelope" size={12} color={COLORS.primary} />
                                     <Text style={styles.inputLabel}>Email Address</Text>
                                 </View>
                                 <TextInput
-                                    style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
+                                    style={[styles.input, styles.readOnlyInput]}
                                     value={user.email}
                                     editable={false}
                                     placeholder="Email Address"
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={COLORS.secondary + '80'}
                                 />
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <View style={styles.inputLabelContainer}>
-                                    <Icon name="phone-alt" size={14} color={COLORS.primary} />
+                                <View style={styles.inputLabelRow}>
+                                    <Icon name="phone-alt" size={12} color={COLORS.primary} />
                                     <Text style={styles.inputLabel}>Phone Number</Text>
                                 </View>
                                 <TextInput
-                                    style={[styles.input, styles.inputWithIcon, styles.readOnlyInput]}
+                                    style={styles.input}
                                     value={phone}
-                                    editable={false}
+                                    onChangeText={setPhone}
                                     placeholder="+1 (555) 123-4567"
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={COLORS.secondary + '80'}
+                                    keyboardType="phone-pad"
                                 />
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <View style={styles.inputLabelContainer}>
-                                    <Icon name="map-marker-alt" size={14} color={COLORS.primary} />
+                                <View style={styles.inputLabelRow}>
+                                    <Icon name="map-marker-alt" size={12} color={COLORS.primary} />
                                     <Text style={styles.inputLabel}>Address</Text>
                                 </View>
                                 <TextInput
-                                    style={[styles.input, styles.inputWithIcon, styles.textArea]}
+                                    style={[styles.input, styles.textArea]}
                                     value={address}
                                     onChangeText={setAddress}
                                     placeholder="Enter your complete address"
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={COLORS.secondary + '80'}
                                     multiline
                                     numberOfLines={3}
                                     textAlignVertical="top"
@@ -221,21 +236,22 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                 <TouchableOpacity
                                     style={[styles.actionButton, styles.cancelButton]}
                                     onPress={() => setIsEditing(false)}
+                                    activeOpacity={0.7}
                                 >
-                                    <Icon name="times" size={16} color={COLORS.secondary} />
                                     <Text style={styles.cancelButtonText}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.actionButton, styles.saveButton]}
                                     onPress={handleSave}
                                     disabled={loading}
+                                    activeOpacity={0.8}
                                 >
                                     {loading ? (
                                         <ActivityIndicator color="#fff" size="small" />
                                     ) : (
                                         <>
-                                            <Icon name="check" size={16} color="#fff" />
-                                            <Text style={styles.saveButtonText}>Save Changes</Text>
+                                            <Icon name="check" size={14} color="#fff" />
+                                            <Text style={styles.saveButtonText}>Save</Text>
                                         </>
                                     )}
                                 </TouchableOpacity>
@@ -243,25 +259,25 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                         </View>
                     ) : (
                         <View style={styles.profileDetails}>
-                            {/* Info Cards */}
+                            {/* Personal Information Card */}
                             <View style={styles.infoCard}>
                                 <View style={styles.infoCardHeader}>
-                                    <Icon name="id-card" size={16} color={COLORS.primary} />
+                                    <Icon name="user-circle" size={16} color={COLORS.primary} />
                                     <Text style={styles.infoCardTitle}>Personal Information</Text>
                                 </View>
 
                                 <View style={styles.infoGrid}>
-                                    <View style={styles.infoItem}>
+                                    <View style={styles.infoRow}>
                                         <View style={styles.infoLabelContainer}>
-                                            <Icon name="user-circle" size={14} color={COLORS.secondary} />
+                                            <Icon name="user" size={12} color={COLORS.secondary} />
                                             <Text style={styles.infoLabel}>Full Name</Text>
                                         </View>
                                         <Text style={styles.infoValue}>{user.name}</Text>
                                     </View>
 
-                                    <View style={styles.infoItem}>
+                                    <View style={styles.infoRow}>
                                         <View style={styles.infoLabelContainer}>
-                                            <Icon name="phone" size={14} color={COLORS.secondary} />
+                                            <Icon name="phone" size={12} color={COLORS.secondary} />
                                             <Text style={styles.infoLabel}>Phone</Text>
                                         </View>
                                         <Text style={[
@@ -272,37 +288,28 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                         </Text>
                                     </View>
 
-                                    <View style={styles.infoItem}>
+                                    <View style={styles.infoRow}>
                                         <View style={styles.infoLabelContainer}>
-                                            <Icon name="map-pin" size={14} color={COLORS.secondary} />
+                                            <Icon name="map-marker-alt" size={12} color={COLORS.secondary} />
                                             <Text style={styles.infoLabel}>Address</Text>
                                         </View>
                                         <Text style={[
                                             styles.infoValue,
-                                            styles.infoValueMultiline,
                                             !user.address && styles.infoValueEmpty
                                         ]}>
                                             {user.address || 'Not provided'}
                                         </Text>
                                     </View>
-                                </View>
-                            </View>
 
-                            <View style={styles.infoCard}>
-
-
-                                <View style={styles.infoItem}>
-                                    <View style={styles.infoLabelContainer}>
-                                        <Icon name="envelope" size={14} color={COLORS.secondary} />
-                                        <Text style={styles.infoLabel}>Email Address</Text>
+                                    <View style={styles.infoRow}>
+                                        <View style={styles.infoLabelContainer}>
+                                            <Icon name="envelope" size={12} color={COLORS.secondary} />
+                                            <Text style={styles.infoLabel}>Email</Text>
+                                        </View>
+                                        <Text style={styles.infoValue}>{user.email}</Text>
                                     </View>
-                                    <Text style={styles.infoValue}>{user.email}</Text>
                                 </View>
-
-
-                            </View>
-
-
+                            </View>                            
                         </View>
                     )}
                 </View>
@@ -312,8 +319,9 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                     <TouchableOpacity
                         style={styles.logoutButton}
                         onPress={onLogout}
+                        activeOpacity={0.7}
                     >
-                        <Icon name="sign-out-alt" size={16} color={COLORS.danger} />
+                        <Icon name="sign-out-alt" size={14} color={COLORS.danger} />
                         <Text style={styles.logoutText}>Sign Out</Text>
                     </TouchableOpacity>
                 )}
@@ -321,9 +329,9 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                 {/* Footer Note */}
                 {!isEditing && (
                     <View style={styles.footerNote}>
-                        <Icon name="info-circle" size={14} color={COLORS.secondary} />
+                        <Icon name="shield-alt" size={12} color={COLORS.primary} />
                         <Text style={styles.footerNoteText}>
-                            Your information is secured and encrypted
+                            Your information is encrypted and secure
                         </Text>
                     </View>
                 )}
@@ -333,7 +341,7 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                 style={styles.bottomFade}
                 pointerEvents="none"
             />
-        </View>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -344,23 +352,27 @@ const styles = StyleSheet.create({
     },
     content: {
         flexGrow: 1,
-        padding: 20,
-        paddingBottom: 100,
-        backgroundColor: '#f8f9fa',
+        paddingHorizontal: Math.min(SCREEN_WIDTH * 0.05, 20),
+        paddingTop: Platform.OS === 'ios' ? 50 : 30,
+        paddingBottom: 40,
     },
     headerContainer: {
-        marginBottom: 25,
+        marginBottom: 20,
         position: 'relative',
-        paddingTop: 10,
     },
     headerContent: {
         zIndex: 2,
+    },
+    headerTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
     },
     sectionTitle: {
         fontSize: 28,
         fontWeight: '800',
         color: COLORS.dark,
-        marginBottom: 5,
         letterSpacing: -0.5,
     },
     sectionSubtitle: {
@@ -370,60 +382,59 @@ const styles = StyleSheet.create({
     },
     headerDecoration: {
         position: 'absolute',
-        right: 0,
-        top: 0,
+        right: -10,
+        top: -10,
     },
     decorationCircle: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        position: 'absolute',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        opacity: 0.3,
     },
     profileCard: {
         backgroundColor: '#fff',
         borderRadius: 20,
-        padding: 24,
+        padding: 20,
         shadowColor: COLORS.dark,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
-        marginBottom: 20,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 4,
+        marginBottom: 16,
     },
     profileHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 30,
-        paddingBottom: 25,
+        marginBottom: 24,
+        paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
     avatarContainer: {
         position: 'relative',
-        marginRight: 20,
+        marginRight: 16,
     },
     profileAvatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
         borderWidth: 3,
         borderColor: '#fff',
         shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 6,
-        overflow: 'hidden', // Ensure image stays within circle
+        shadowRadius: 6,
+        elevation: 5,
     },
     avatarImage: {
         width: '100%',
         height: '100%',
     },
     avatarText: {
-        fontSize: 32,
+        fontSize: 26,
         color: '#fff',
         fontWeight: 'bold',
     },
@@ -432,9 +443,9 @@ const styles = StyleSheet.create({
         bottom: 0,
         right: 0,
         backgroundColor: COLORS.primary,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -444,111 +455,93 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     profileNameHeader: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '700',
         color: COLORS.dark,
-        marginBottom: 6,
-    },
-    profileMeta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 4,
     },
     profileEmailHeader: {
         fontSize: 14,
         color: COLORS.secondary,
-        marginLeft: 8,
     },
-    statsContainer: {
-        flexDirection: 'row',
-        gap: 15,
-    },
-    statItem: {
+    editAvatarButton: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: COLORS.primary + '10',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 15,
-    },
-    statText: {
-        fontSize: 12,
-        color: COLORS.dark,
-        marginLeft: 6,
-        fontWeight: '500',
-    },
-    editAvatarNote: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        borderWidth: 2,
-        borderColor: '#f0f0f0',
-        borderStyle: 'dashed',
-        borderRadius: 15,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        alignSelf: 'flex-start',
     },
     editAvatarText: {
         fontSize: 14,
-        color: COLORS.secondary,
-        marginTop: 10,
-        fontWeight: '500',
+        color: COLORS.primary,
+        fontWeight: '600',
+        marginLeft: 8,
     },
     editForm: {
-        marginTop: 10,
+        marginTop: 8,
     },
-    inputGroup: {
+    formTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.dark,
         marginBottom: 20,
     },
-    inputLabelContainer: {
+    inputGroup: {
+        marginBottom: 16,
+    },
+    inputLabelRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 6,
     },
     inputLabel: {
-        fontSize: 14,
+        fontSize: 13,
         color: COLORS.dark,
         fontWeight: '600',
-        marginLeft: 10,
+        marginLeft: 8,
     },
     input: {
-        backgroundColor: COLORS.inputBackground,
-        padding: 16,
+        backgroundColor: '#f8f9fa',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         borderRadius: 12,
-        fontSize: 16,
-        color: COLORS.textPrimary,
-        borderWidth: 2,
-        borderColor: '#f0f0f0',
-    },
-    inputWithIcon: {
-        paddingLeft: 48,
+        fontSize: 15,
+        color: COLORS.dark,
+        borderWidth: 1.5,
+        borderColor: '#e9ecef',
     },
     textArea: {
-        minHeight: 100,
+        minHeight: 80,
+        paddingTop: 12,
         textAlignVertical: 'top',
+    },
+    readOnlyInput: {
+        backgroundColor: '#f1f3f5',
+        color: COLORS.secondary,
     },
     editActions: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
         gap: 12,
-        marginTop: 30,
+        marginTop: 24,
         paddingTop: 20,
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
     },
     actionButton: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 14,
-        paddingHorizontal: 24,
         borderRadius: 12,
-        minWidth: 150,
         gap: 8,
     },
     cancelButton: {
-        backgroundColor: COLORS.inputBackground,
-        borderWidth: 1,
-        borderColor: COLORS.secondary + '30',
+        backgroundColor: '#f8f9fa',
+        borderWidth: 1.5,
+        borderColor: '#e9ecef',
     },
     cancelButtonText: {
         color: COLORS.secondary,
@@ -558,10 +551,10 @@ const styles = StyleSheet.create({
     saveButton: {
         backgroundColor: COLORS.primary,
         shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 4,
     },
     saveButtonText: {
         color: '#fff',
@@ -569,57 +562,56 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     profileDetails: {
-        marginTop: 10,
+        marginTop: 8,
     },
     infoCard: {
-        backgroundColor: COLORS.inputBackground,
+        backgroundColor: '#f8f9fa',
         borderRadius: 16,
-        padding: 5,
-        marginBottom: 16,
+        padding: 16,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#f0f0f0',
+        borderColor: '#e9ecef',
     },
     infoCardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     infoCardTitle: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '700',
         color: COLORS.dark,
-        marginLeft: 12,
+        marginLeft: 10,
     },
     infoGrid: {
-        gap: 18,
+        gap: 14,
     },
-    infoItem: {
-        marginBottom: 4,
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
     },
     infoLabelContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        flex: 1,
     },
     infoLabel: {
-        fontSize: 12,
+        fontSize: 13,
         color: COLORS.secondary,
-        fontWeight: '600',
-        marginLeft: 10,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        fontWeight: '500',
+        marginLeft: 8,
     },
     infoValue: {
-        fontSize: 16,
+        fontSize: 15,
         color: COLORS.dark,
         fontWeight: '500',
-        paddingLeft: 24,
-    },
-    infoValueMultiline: {
-        lineHeight: 22,
+        flex: 1.5,
+        textAlign: 'right',
+        marginLeft: 16,
     },
     infoValueEmpty: {
-        color: '#999',
+        color: '#adb5bd',
         fontStyle: 'italic',
     },
     statusBadge: {
@@ -627,10 +619,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#4CAF50' + '15',
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         borderRadius: 12,
         alignSelf: 'flex-start',
-        marginLeft: 24,
     },
     statusText: {
         fontSize: 14,
@@ -638,45 +629,16 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginLeft: 6,
     },
-    editTriggerButton: {
-        backgroundColor: COLORS.primary,
-        borderRadius: 16,
-        padding: 20,
-        marginTop: 10,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
-    },
-    editButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    editButtonTextContainer: {
-        flex: 1,
-        marginHorizontal: 16,
-    },
-    editButtonTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 4,
-    },
-    editButtonSubtitle: {
-        color: '#fff',
-        fontSize: 12,
-        opacity: 0.9,
-    },
     footerNote: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
+        padding: 12,
         backgroundColor: '#fff',
         borderRadius: 12,
-        marginTop: 10,
+        marginTop: 16,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
     },
     footerNoteText: {
         fontSize: 12,
@@ -688,47 +650,47 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: '#fff',
         paddingVertical: 16,
         borderRadius: 12,
         borderWidth: 1.5,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
-        marginTop: 20,
-        marginBottom: 10,
+        borderColor: '#e9ecef',
+        marginTop: 16,
+        shadowColor: COLORS.dark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     logoutText: {
         color: COLORS.danger,
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '600',
-        marginLeft: 12,
-    },
-    readOnlyInput: {
-        backgroundColor: '#e2e8f0',
-        borderColor: '#cbd5e1',
-        color: '#64748b',
+        marginLeft: 10,
     },
     smallEditButton: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: COLORS.primary,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 15,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        gap: 4,
     },
     smallEditText: {
         color: '#fff',
-        fontSize: 10,
-        fontWeight: '600',
-        marginLeft: 4,
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     bottomFade: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        height: 60,
-        zIndex: 20
-    }
+        height: 40,
+        zIndex: 20,
+    },
 });
 
 export default ProfileTab;

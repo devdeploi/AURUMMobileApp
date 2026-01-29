@@ -151,7 +151,7 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                             setTimeout(() => {
                                 const options = {
                                     description: `Subscription to ${plan.planName}`,
-                                    image: merchant.shopImages?.[0] ? `${BASE_URL}${merchant.shopImages[0]}` : undefined,
+                                    image: merchant.shopLogo ? `${BASE_URL}${merchant.shopLogo}` : undefined,
                                     currency: 'INR',
                                     key: 'rzp_test_S6RoMCiZCpsLo7',
                                     amount: Number(order.amount),
@@ -207,6 +207,9 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         });
     };
 
+    console.log(merchant);
+
+
     const renderHeader = () => (
         <View style={styles.header}>
             <View style={styles.headerTop}>
@@ -219,9 +222,9 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
 
             <View style={styles.merchantInfo}>
                 <View style={[styles.avatarContainer, { overflow: 'hidden' }]}>
-                    {merchant.shopImages && merchant.shopImages.length > 0 ? (
+                    {merchant.shopLogo ? (
                         <Image
-                            source={{ uri: `${BASE_URL}${merchant.shopImages[0]}` }}
+                            source={{ uri: `${BASE_URL}${merchant.shopLogo}` }}
                             style={styles.avatarImage}
                             resizeMode="cover"
                         />
@@ -334,9 +337,11 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                                 {subscribing === plan._id ? (
                                     <ActivityIndicator color="#fff" size="small" />
                                 ) : (
-                                    <Text style={styles.subscribeText}>
-                                        {isSubscribed ? 'Subscribed' : 'Subscribe Now'}
-                                    </Text>
+                                    <View style={{ alignItems: 'center' }}>
+                                        <Text style={styles.subscribeText}>
+                                            {isSubscribed ? 'Subscribed' : 'Subscribe Now + (2% fee)'}
+                                        </Text>
+                                    </View>
                                 )}
                             </TouchableOpacity>
                         </View>
@@ -762,7 +767,7 @@ const styles = StyleSheet.create({
     subscribeText: {
         color: '#fff',
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: 14,
         letterSpacing: 0.5,
     },
     detailsButton: {

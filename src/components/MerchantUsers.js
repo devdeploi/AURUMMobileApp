@@ -23,6 +23,11 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
 import { APIURL, BASE_URL } from '../constants/api';
 import CustomAlert from './CustomAlert';
+import { generatePDF } from 'react-native-html-to-pdf';
+import Share from 'react-native-share';
+import aurumLogo from '../assets/AURUM.png';
+import safproLogo from '../../public/assests/Safpro-logo.png';
+import RNFS from 'react-native-fs';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -68,6 +73,380 @@ const MerchantUsers = ({ user }) => {
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [paymentHistory, setPaymentHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // --- PDF Generation Logic ---
+
+    const fetchImageAsBase64 = async (url) => {
+        try {
+            // If it's a local file from resolveAssetSource
+            if (url && (url.startsWith('file://') || url.startsWith('/'))) {
+                const cleanPath = url.replace('file://', '');
+                const base64Data = await RNFS.readFile(cleanPath, 'base64');
+                return `data:image/png;base64,${base64Data}`;
+            }
+
+            // Fallback for remote URLs or others
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error("Error fetching image:", error);
+            return null;
+        }
+    };
+
+    const shareFile = async (filePath) => {
+        try {
+            const shareOptions = {
+                title: 'Share PDF',
+                url: Platform.OS === 'android' ? `file://${filePath}` : `file://${filePath}`,
+                type: 'application/pdf',
+                failOnCancel: false
+            };
+            await Share.open(shareOptions);
+        } catch (error) {
+            console.log("Share Error:", error);
+        }
+    };
+
+    const createAndDownloadPDF = async (html, fileName) => {
+        try {
+            const cleanFileName = fileName.replace(/[^a-z0-9]/gi, '_');
+            const options = {
+                html,
+                fileName: cleanFileName,
+                directory: 'Documents',
+            };
+
+            const file = await generatePDF(options);
+
+            if (!file || !file.filePath) {
+                throw new Error("Failed to generate PDF");
+            }
+
+            if (Platform.OS === 'android') {
+                const downloadPath = `${RNFS.DownloadDirectoryPath}/${cleanFileName}.pdf`;
+                try {
+                    // Check if file exists and delete it before copying
+                    const exists = await RNFS.exists(downloadPath);
+                    if (exists) {
+                        await RNFS.unlink(downloadPath);
+                    }
+                    await RNFS.copyFile(file.filePath, downloadPath);
+                    showCustomAlert("Success", "PDF saved successfully to Downloads folder", "success", [
+                        {
+                            text: "Share",
+                            onPress: () => shareFile(downloadPath)
+                        },
+                        { text: "OK" }
+                    ]);
+                } catch (copyErr) {
+                    console.error("File Copy Error:", copyErr);
+                    // Fallback to sharing the original file if copy fails
+                    await shareFile(file.filePath);
+                }
+            } else {
+                // For iOS, trigger the share sheet immediately as "Documents" isn't easily accessible
+                await shareFile(file.filePath);
+            }
+
+        } catch (error) {
+            console.error("PDF Download Error:", error);
+            showCustomAlert("Error", "Failed to generate PDF", "error");
+        }
+    };
+
+    const generateInvoice = async (payment, subscriber) => {
+        setLoading(true);
+        try {
+            // 1. Load Logos
+            const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
+            const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
+            const aurumLogoImgTag = aurumLogoBase64 ? `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />` : 'AURUM';
+
+            const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
+            const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
+            const safproLogoImgTag = safproLogoBase64 ? `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />` : 'Safpro';
+
+            let shopLogoImgTag = '';
+            if (user.shopLogo) {
+                const shopLogoUrl = `${BASE_URL}${user.shopLogo}`;
+                const shopLogoBase64 = await fetchImageAsBase64(shopLogoUrl);
+                if (shopLogoBase64) {
+                    shopLogoImgTag = `<img src="${shopLogoBase64}" style="width: 70px; height: 70px; border-radius: 35px; object-fit: cover;" />`;
+                }
+            }
+
+            // 2. Data Prep
+            const planName = subscriber.plan?.planName || subscriber.chitPlan?.planName || 'Unknown Plan';
+            const paymentDate = new Date(payment.paymentDate || payment.date || new Date()).toLocaleDateString();
+            const merchantName = user.name.toUpperCase();
+            const customerName = subscriber.user.name.toUpperCase();
+
+            // 3. HTML Template
+            const html = `
+                <html>
+                <head>
+                    <style>
+                        body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
+                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #915200; }
+                        .logo-left, .logo-right { width: 100px; display: flex; align-items: center; justify-content: center; }
+                        .header-center { text-align: center; flex: 1; margin: 0 10px; }
+                        .header-center h2 { color: #915200; margin: 0; font-size: 18px; text-transform: uppercase; }
+                        .header-center p { margin: 2px 0; font-size: 10px; color: #666; }
+                        
+                        .title-section { text-align: center; margin-bottom: 30px; }
+                        .title-section h1 { color: #915200; margin: 0; font-size: 24px; letter-spacing: 2px; }
+                        .title-section p { color: #666; margin: 5px 0 0; font-size: 12px; }
+
+                        .grid { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                        .col { width: 45%; }
+                        .label { color: #915200; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
+                        .name { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+                        .info { font-size: 12px; color: #555; line-height: 1.4; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                        th { background-color: #915200; color: white; padding: 10px; text-align: left; font-size: 12px; }
+                        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+                        .total-row td { background-color: #fffbf0; font-weight: bold; color: #915200; }
+                        .footer { text-align: center; margin-top: 50px; color: #915200; font-size: 12px; border-top: 1px solid #eee; padding-top: 30px; }
+                        .brand-strip { background-color: #915200; color: white; text-align: center; padding: 5px; font-size: 10px; position: fixed; bottom: 0; left: 0; right: 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="logo-left">${aurumLogoImgTag}</div>
+                        <div class="header-center">
+                            <h2>${merchantName}</h2>
+                            <p>${user.address || ''}</p>
+                            <p>Phone: ${user.phone}${user.email ? ' | ' + user.email : ''}</p>
+                        </div>
+                        <div class="logo-right">${shopLogoImgTag}</div>
+                    </div>
+
+                    <div class="title-section">
+                        <h1>PAYMENT RECEIPT</h1>
+                        <p>Date: ${new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <div class="grid">
+                        <div class="col">
+                            <div class="label">TO:</div>
+                            <div class="name">${customerName}</div>
+                            <div class="info">
+                                Phone: ${subscriber.user.phone}<br/>
+                                ${subscriber.user.email ? subscriber.user.email : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Details</th>
+                                <th style="text-align: right;">Amount (INR)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Plan Name</td>
+                                <td>${planName}</td>
+                                <td style="text-align: right;"></td>
+                            </tr>
+                            <tr>
+                                <td>Payment Mode</td>
+                                <td>${payment.type || "Offline"}</td>
+                                <td style="text-align: right;"></td>
+                            </tr>
+                            <tr>
+                                <td>Payment Date</td>
+                                <td>${paymentDate}</td>
+                                <td style="text-align: right;"></td>
+                            </tr>
+                             <tr>
+                                <td>Notes</td>
+                                <td>${payment.notes || "-"}</td>
+                                <td style="text-align: right;"></td>
+                            </tr>
+                            <tr class="total-row">
+                                <td colspan="2">TOTAL RECEIVED</td>
+                                <td style="text-align: right;">Rs. ${Number(payment.amount).toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="footer">
+                        <p>Thank you!</p>
+                        <p style="font-size: 10px; color: #888; font-weight: normal;">If you have any questions, please contact the merchant.</p>
+                        
+                        <div style="margin-top: 20px;">
+                            <p style="font-size: 10px; color: #999; margin-bottom: 5px;">Powered By</p>
+                            ${safproLogoImgTag}
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            await createAndDownloadPDF(html, `Receipt_${subscriber.user.name}_${Date.now()}`);
+
+        } catch (error) {
+            console.error("Invoice Gen Error", error);
+            showCustomAlert("Error", "Failed to generate invoice", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const generateStatement = async (subscriber, history) => {
+        setLoading(true);
+        try {
+            // 1. Load Logos
+            const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
+            const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
+            const aurumLogoImgTag = aurumLogoBase64 ? `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />` : 'AURUM';
+
+            const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
+            const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
+            const safproLogoImgTag = safproLogoBase64 ? `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />` : 'Safpro';
+
+            let shopLogoImgTag = '';
+            if (user.shopLogo) {
+                const shopLogoUrl = `${BASE_URL}${user.shopLogo}`;
+                const shopLogoBase64 = await fetchImageAsBase64(shopLogoUrl);
+                if (shopLogoBase64) {
+                    shopLogoImgTag = `<img src="${shopLogoBase64}" style="width: 70px; height: 70px; border-radius: 35px; object-fit: cover;" />`;
+                }
+            }
+
+            const merchantName = user.name.toUpperCase();
+            const customerName = subscriber.user.name.toUpperCase();
+            const planName = subscriber.plan?.planName || 'Unknown Plan';
+            const totalPlanAmount = subscriber.plan?.totalAmount || 0;
+
+            let totalPaid = 0;
+            const sortedHistory = [...history].sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate));
+
+            const rowsHtml = sortedHistory.map(pay => {
+                if (pay.status === 'Completed') totalPaid += Number(pay.amount);
+                return `
+                    <tr>
+                        <td>${new Date(pay.paymentDate || pay.createdAt).toLocaleDateString()}</td>
+                        <td>${pay.notes || "Installment Payment"}</td>
+                        <td>${pay.type === 'offline' ? 'Offline' : 'Online'}</td>
+                        <td style="text-align: right;">Rs. ${Number(pay.amount).toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const balanceDue = totalPlanAmount - totalPaid;
+            const balanceColor = balanceDue > 0 ? '#D32F2F' : '#2E7D32';
+
+            const html = `
+                <html>
+                <head>
+                    <style>
+                        body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
+                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #915200; }
+                        .logo-left, .logo-right { width: 100px; display: flex; align-items: center; justify-content: center; }
+                        .header-center { text-align: center; flex: 1; margin: 0 10px; }
+                        .header-center h2 { color: #915200; margin: 0; font-size: 18px; text-transform: uppercase; }
+                        .header-center p { margin: 2px 0; font-size: 10px; color: #666; }
+                        
+                        .title-section { text-align: center; margin-bottom: 30px; }
+                        .title-section h1 { color: #915200; margin: 0; font-size: 24px; letter-spacing: 2px; }
+                        .title-section p { color: #666; margin: 5px 0 0; font-size: 12px; }
+
+                        .grid { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                        .col { width: 45%; }
+                        .label { color: #915200; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
+                        .name { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+                        .info { font-size: 12px; color: #555; line-height: 1.4; }
+                        .plan-info { background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 12px; border-left: 4px solid #915200; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                        th { background-color: #915200; color: white; padding: 8px; text-align: left; font-size: 11px; }
+                        td { padding: 8px; border-bottom: 1px solid #eee; font-size: 11px; }
+                        .total-row td { background-color: #fffbf0; font-weight: bold; color: #915200; }
+                        .footer { text-align: center; margin-top: 50px; color: #915200; font-size: 12px; border-top: 1px solid #eee; padding-top: 30px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="logo-left">${aurumLogoImgTag}</div>
+                        <div class="header-center">
+                            <h2>${merchantName}</h2>
+                            <p>${user.address || ''}</p>
+                            <p>Phone: ${user.phone}${user.email ? ' | ' + user.email : ''}</p>
+                        </div>
+                        <div class="logo-right">${shopLogoImgTag}</div>
+                    </div>
+
+                    <div class="title-section">
+                        <h1>STATEMENT OF ACCOUNT</h1>
+                        <p>Generated On: ${new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <div class="grid">
+                        <div class="col">
+                            <div class="label">TO:</div>
+                            <div class="name">${customerName}</div>
+                            <div class="info">
+                                Phone: ${subscriber.user.phone}<br/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="plan-info">
+                        <strong>Plan:</strong> ${planName} (Total Value: Rs. ${Number(totalPlanAmount).toLocaleString()})
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th style="text-align: right;">Amount (INR)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                            <tr class="total-row">
+                                <td colspan="3">TOTAL PAID</td>
+                                <td style="text-align: right;">Rs. ${totalPaid.toFixed(2)}</td>
+                            </tr>
+                             <tr class="total-row">
+                                <td colspan="3">BALANCE DUE</td>
+                                <td style="text-align: right; color: ${balanceColor};">Rs. ${balanceDue.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                     <div class="footer">
+                        <p>Thank you for your business!</p>
+                        <div style="margin-top: 20px;">
+                            <p style="font-size: 10px; color: #999; margin-bottom: 5px;">Powered By</p>
+                            ${safproLogoImgTag}
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            await createAndDownloadPDF(html, `Statement_${subscriber.user.name}_${Date.now()}`);
+
+        } catch (error) {
+            console.error("Statement Gen Error", error);
+            showCustomAlert("Error", "Failed to generate statement", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const openHistoryModal = async (subscriber) => {
         setSelectedSubscriber(subscriber);
@@ -159,8 +538,29 @@ const MerchantUsers = ({ user }) => {
         setActionLoading(paymentId);
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const paymentToApprove = pendingPayments.find(p => p._id === paymentId);
+
             await axios.put(`${APIURL}/payments/offline/${paymentId}/approve`, {}, config);
-            showCustomAlert("Success", "Payment approved successfully", "success");
+            showCustomAlert("Success", "Payment approved successfully", "success", [
+                {
+                    text: "Invoice",
+                    onPress: () => {
+                        if (paymentToApprove) {
+                            // detailed object for generateInvoice
+                            const invoicePayment = {
+                                ...paymentToApprove,
+                                type: 'offline', // ensure type is set
+                            };
+                            const invoiceSubscriber = {
+                                user: paymentToApprove.user,
+                                chitPlan: paymentToApprove.chitPlan
+                            };
+                            generateInvoice(invoicePayment, invoiceSubscriber);
+                        }
+                    }
+                },
+                { text: "OK", onPress: () => { } }
+            ]);
             fetchData(); // Refresh list
         } catch (error) {
             console.error("Approve failed", error);
@@ -228,7 +628,25 @@ const MerchantUsers = ({ user }) => {
             }, config);
 
             setShowManualModal(false);
-            showCustomAlert("Success", "Payment recorded successfully", "success");
+
+            showCustomAlert("Success", "Payment recorded successfully", "success", [
+                {
+                    text: "Invoice",
+                    onPress: () => {
+                        // Need to construct payment object similar to what we did in web
+                        const paymentData = {
+                            amount: manualForm.amount,
+                            notes: manualForm.notes,
+                            date: new Date().toISOString(),
+                            type: 'offline',
+                            paymentDate: new Date().toISOString()
+                        };
+                        generateInvoice(paymentData, selectedSubscriber);
+                    }
+                },
+                { text: "OK", onPress: () => { } }
+            ]);
+
             fetchData();
 
         } catch (error) {
@@ -579,9 +997,14 @@ const MerchantUsers = ({ user }) => {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Subscription History</Text>
-                            <TouchableOpacity onPress={() => setShowHistoryModal(false)}>
-                                <Icon name="times" size={20} color="#999" />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <TouchableOpacity onPress={() => generateStatement(selectedSubscriber, paymentHistory)} style={{ marginRight: 15 }}>
+                                    <Icon name="file-download" size={20} color={COLORS.primary} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setShowHistoryModal(false)}>
+                                    <Icon name="times" size={20} color="#999" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {selectedSubscriber && (
@@ -638,6 +1061,12 @@ const MerchantUsers = ({ user }) => {
                                         <View style={styles.historyRight}>
                                             <Text style={styles.historyAmount}>₹{item.amount}</Text>
                                             <Text style={[styles.historyStatus, { color: item.status === 'Completed' ? 'green' : item.status === 'Rejected' ? 'red' : 'orange' }]}>{item.status}</Text>
+
+                                            {item.status === 'Completed' && (
+                                                <TouchableOpacity onPress={() => generateInvoice(item, selectedSubscriber)} style={{ marginTop: 5 }}>
+                                                    <Icon name="file-invoice" size={14} color={COLORS.primary} />
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
                                     </View>
                                 )}

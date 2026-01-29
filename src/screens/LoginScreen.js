@@ -26,6 +26,43 @@ import { APIURL } from '../constants/api';
 import CustomAlert from '../components/CustomAlert';
 import FCMService from '../services/FCMService';
 
+const OTPInput = ({ value, onChange, refs, isLoading }) => {
+    const handleOtpChange = (text, index) => {
+        const newOtp = [...value];
+        newOtp[index] = text;
+        onChange(newOtp);
+
+        if (text && index < 5) {
+            refs[index + 1].current.focus();
+        }
+    };
+
+    const handleKeyPress = (e, index) => {
+        if (e.nativeEvent.key === 'Backspace' && !value[index] && index > 0) {
+            refs[index - 1].current.focus();
+        }
+    };
+
+    return (
+        <View style={styles.otpRow}>
+            {value.map((digit, index) => (
+                <TextInput
+                    key={index}
+                    ref={refs[index]}
+                    style={styles.otpBox}
+                    value={digit}
+                    onChangeText={(text) => handleOtpChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="numeric"
+                    maxLength={1}
+                    selectTextOnFocus
+                    editable={!isLoading}
+                />
+            ))}
+        </View>
+    );
+};
+
 const LoginScreen = ({ onLogin, onRegisterClick }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -35,6 +72,8 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
     // Login Mode: 'password' or 'otp'
     const [loginMode, setLoginMode] = useState('password');
     const slideAnim = useRef(new Animated.Value(0)).current;
+    const [resendTimer, setResendTimer] = useState(0);
+
 
     useEffect(() => {
         if (Platform.OS === 'android') {
@@ -43,6 +82,17 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
             }
         }
     }, []);
+
+
+    useEffect(() => {
+        let interval;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer > 0]);
 
     const switchMode = (mode) => {
         if (mode === loginMode) return;
@@ -60,16 +110,21 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
 
     // Merchant Login OTP State
     const [merchantLoginStep, setMerchantLoginStep] = useState(1);
-    const [merchantOtp, setMerchantOtp] = useState('');
+    const [merchantOtp, setMerchantOtp] = useState(['', '', '', '', '', '']);
+    const mOtpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
     // Forgot Password State
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [resetStep, setResetStep] = useState(1);
     const [resetEmail, setResetEmail] = useState('');
-    const [otp, setOtp] = useState('');
+    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
     const [generatedOtp, setGeneratedOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+    // const [resendTimer, setResendTimer] = useState(0); (Moved up)
 
     // Custom Alert State
     const [alertConfig, setAlertConfig] = useState({
@@ -151,6 +206,7 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         try {
             await axios.post(`${APIURL}/merchants/send-login-otp`, { email });
             setMerchantLoginStep(2); // Move to OTP entry
+            setResendTimer(60);
             setAlertConfig({ visible: true, title: 'Success', message: 'OTP Sent successfully', type: 'success' });
         } catch (error) {
             const msg = error.response?.data?.message || 'Failed to send OTP. Check if registered.';
@@ -161,16 +217,16 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
     };
 
     const handleMerchantVerifyOtp = async () => {
-        if (merchantOtp.length !== 6) {
-            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter a valid 6-digit OTP', type: 'error' });
+        const otpString = merchantOtp.join('');
+        if (otpString.length !== 6) {
+            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter a 6-digit OTP', type: 'error' });
             return;
         }
-        setIsLoading(true);
         setIsLoading(true);
         try {
             const { data } = await axios.post(`${APIURL}/merchants/verify-login-otp`, {
                 email,
-                otp: merchantOtp
+                otp: otpString
             });
             await FCMService.registerToken(data._id, 'merchant', data.token);
             FCMService.displayLocalNotification('OTP Verified', 'Merchant login successful.');
@@ -183,46 +239,80 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         }
     };
 
-    const handleSendOtp = () => {
-        if (resetEmail && resetEmail.includes('@')) {
-            const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
-            setGeneratedOtp(randomOtp);
-            setAlertConfig({ visible: true, title: 'OTP Sent', message: `Your OTP is ${randomOtp} `, type: 'success' });
-            setResetStep(2);
+    const handleSendOtp = async () => {
+        if (resetEmail) {
+            setIsLoading(true);
+            try {
+                const { data } = await axios.post(`${APIURL}/forgot-password`, { email: resetEmail });
+                setAlertConfig({ visible: true, title: 'OTP Sent', message: data.message || 'OTP sent to your registered email/phone', type: 'success' });
+                setResetStep(2);
+                setResendTimer(60);
+            } catch (error) {
+                const msg = error.response?.data?.message || 'Failed to send OTP. Account not found.';
+                setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter a valid email', type: 'error' });
+            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter email or phone', type: 'error' });
         }
     };
 
-    const handleVerifyOtp = () => {
-        if (otp === generatedOtp) {
-            setResetStep(3);
+    const handleVerifyOtp = async () => {
+        const otpString = otp.join('');
+        if (otpString.length === 6) {
+            setIsLoading(true);
+            try {
+                await axios.post(`${APIURL}/verify-otp`, { email: resetEmail, otp: otpString });
+                setResetStep(3);
+            } catch (error) {
+                const msg = error.response?.data?.message || 'Invalid or expired OTP';
+                setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            setAlertConfig({ visible: true, title: 'Error', message: 'Invalid OTP', type: 'error' });
+            setAlertConfig({ visible: true, title: 'Error', message: 'Please enter a 6-digit OTP', type: 'error' });
         }
     };
 
-    const handleResetPassword = () => {
-        if (newPassword === confirmNewPassword && newPassword.length > 0) {
-            setAlertConfig({
-                visible: true,
-                title: 'Success',
-                message: 'Password reset successful',
-                type: 'success',
-                buttons: [{
-                    text: 'OK',
-                    onPress: () => {
-                        setIsForgotPassword(false);
-                        setResetStep(1);
-                        setResetEmail('');
-                        setNewPassword('');
-                        setOtp('');
-                        hideAlert(); // Close the alert after handling
-                    }
-                }]
-            });
+    const handleResetPassword = async () => {
+        if (newPassword === confirmNewPassword && newPassword.length >= 6) {
+            setIsLoading(true);
+            try {
+                const { data } = await axios.post(`${APIURL}/reset-password`, {
+                    email: resetEmail,
+                    otp: otp.join(''),
+                    newPassword
+                });
+                setAlertConfig({
+                    visible: true,
+                    title: 'Success',
+                    message: data.message || 'Password reset successful',
+                    type: 'success',
+                    buttons: [{
+                        text: 'OK',
+                        onPress: () => {
+                            setIsForgotPassword(false);
+                            setResetStep(1);
+                            setResetEmail('');
+                            setNewPassword('');
+                            setConfirmNewPassword('');
+                            setOtp(['', '', '', '', '', '']);
+                            setResendTimer(0);
+                            hideAlert();
+                        }
+                    }]
+                });
+            } catch (error) {
+                const msg = error.response?.data?.message || 'Failed to reset password';
+                setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            setAlertConfig({ visible: true, title: 'Error', message: 'Passwords do not match or are empty', type: 'error' });
+            const msg = newPassword.length < 6 ? 'Password must be at least 6 characters' : 'Passwords do not match';
+            setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
         }
     };
 
@@ -237,23 +327,32 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 <SafeAreaView style={{ flex: 1 }}>
                     <ScrollView contentContainerStyle={styles.scrollContent}>
                         <View style={styles.card}>
-                            <Icon name="gem" size={50} color={COLORS.primary} style={styles.headerIcon} />
+                            <Image source={require('../assets/AURUM.png')} style={styles.logo} />
                             <Text style={styles.title}>Reset Password</Text>
-                            <Text style={styles.subtitle}>Enter details to reset</Text>
+                            {/* <Text style={styles.subtitle}>Enter details to reset</Text> */}
 
                             {resetStep === 1 && (
                                 <>
                                     <TextInput
                                         style={styles.input}
-                                        placeholder="Enter registered email"
+                                        placeholder="Enter registered email or phone"
                                         placeholderTextColor={COLORS.textSecondary}
                                         value={resetEmail}
                                         onChangeText={setResetEmail}
                                         autoCapitalize="none"
-                                        keyboardType="email-address"
                                     />
-                                    <TouchableOpacity style={styles.button} onPress={handleSendOtp}>
-                                        <Text style={styles.buttonText}>Send OTP</Text>
+                                    <TouchableOpacity style={styles.button} onPress={handleSendOtp} disabled={isLoading}>
+                                        {isLoading ? (
+                                            <ActivityIndicator color={COLORS.white} />
+                                        ) : (
+                                            <Text style={styles.buttonText}>Send OTP</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setIsForgotPassword(false);
+                                        setResendTimer(0);
+                                    }} style={styles.linkButton}>
+                                        <Text style={styles.linkText}>Back to Login</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -261,47 +360,94 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                             {resetStep === 2 && (
                                 <>
                                     <Text style={styles.infoText}>OTP sent to {resetEmail}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Enter OTP"
-                                        placeholderTextColor={COLORS.textSecondary}
+                                    <OTPInput
                                         value={otp}
-                                        onChangeText={setOtp}
-                                        keyboardType="numeric"
+                                        onChange={setOtp}
+                                        refs={otpRefs}
+                                        isLoading={isLoading}
                                     />
-                                    <TouchableOpacity style={styles.button} onPress={handleVerifyOtp}>
-                                        <Text style={styles.buttonText}>Verify OTP</Text>
+                                    <TouchableOpacity style={[styles.button, { marginTop: 15 }]} onPress={handleVerifyOtp} disabled={isLoading}>
+                                        {isLoading ? (
+                                            <ActivityIndicator color={COLORS.white} />
+                                        ) : (
+                                            <Text style={styles.buttonText}>Verify OTP</Text>
+                                        )}
                                     </TouchableOpacity>
+
+                                    <View style={styles.rowContainer}>
+                                        <TouchableOpacity
+                                            onPress={resendTimer > 0 ? null : handleSendOtp}
+                                            style={styles.linkButton}
+                                            disabled={resendTimer > 0}
+                                        >
+                                            <Text style={[
+                                                styles.linkText,
+                                                { color: resendTimer > 0 ? COLORS.textSecondary : COLORS.primary, textDecorationLine: 'none' }
+                                            ]}>
+                                                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity onPress={() => {
+                                            setIsForgotPassword(false);
+                                            setResendTimer(0);
+                                        }} style={styles.linkButton}>
+                                            <Text style={styles.linkText}>Back to Login</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </>
                             )}
 
                             {resetStep === 3 && (
                                 <>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="New Password"
-                                        placeholderTextColor={COLORS.textSecondary}
-                                        value={newPassword}
-                                        onChangeText={setNewPassword}
-                                        secureTextEntry
-                                    />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Confirm New Password"
-                                        placeholderTextColor={COLORS.textSecondary}
-                                        value={confirmNewPassword}
-                                        onChangeText={setConfirmNewPassword}
-                                        secureTextEntry
-                                    />
-                                    <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
-                                        <Text style={styles.buttonText}>Reset Password</Text>
+                                    <View style={styles.passwordContainer}>
+                                        <TextInput
+                                            style={[styles.input, { marginBottom: 0, flex: 1, borderRightWidth: 0, backgroundColor: 'transparent' }]}
+                                            placeholder="New Password"
+                                            placeholderTextColor={COLORS.textSecondary}
+                                            value={newPassword}
+                                            onChangeText={setNewPassword}
+                                            secureTextEntry={!showNewPassword}
+                                        />
+                                        <TouchableOpacity
+                                            style={styles.eyeIcon}
+                                            onPress={() => setShowNewPassword(!showNewPassword)}
+                                        >
+                                            <Icon name={showNewPassword ? 'eye' : 'eye-slash'} size={20} color={COLORS.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.passwordContainer}>
+                                        <TextInput
+                                            style={[styles.input, { marginBottom: 0, flex: 1, borderRightWidth: 0, backgroundColor: 'transparent' }]}
+                                            placeholder="Confirm New Password"
+                                            placeholderTextColor={COLORS.textSecondary}
+                                            value={confirmNewPassword}
+                                            onChangeText={setConfirmNewPassword}
+                                            secureTextEntry={!showConfirmNewPassword}
+                                        />
+                                        <TouchableOpacity
+                                            style={styles.eyeIcon}
+                                            onPress={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                                        >
+                                            <Icon name={showConfirmNewPassword ? 'eye' : 'eye-slash'} size={20} color={COLORS.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity style={styles.button} onPress={handleResetPassword} disabled={isLoading}>
+                                        {isLoading ? (
+                                            <ActivityIndicator color={COLORS.white} />
+                                        ) : (
+                                            <Text style={styles.buttonText}>Reset Password</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setIsForgotPassword(false);
+                                        setResendTimer(0);
+                                    }} style={styles.linkButton}>
+                                        <Text style={styles.linkText}>Back to Login</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
-
-                            <TouchableOpacity onPress={() => setIsForgotPassword(false)} style={styles.linkButton}>
-                                <Text style={styles.linkText}>Back to Login</Text>
-                            </TouchableOpacity>
                         </View>
                     </ScrollView>
                 </SafeAreaView>
@@ -414,37 +560,55 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                         ) : (
                             <>
                                 <Text style={styles.infoText}>Enter OTP sent to {email}</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter 6-digit OTP"
-                                    placeholderTextColor={COLORS.textSecondary}
+                                <OTPInput
                                     value={merchantOtp}
-                                    onChangeText={setMerchantOtp}
-                                    keyboardType="numeric"
-                                    maxLength={6}
+                                    onChange={setMerchantOtp}
+                                    refs={mOtpRefs}
+                                    isLoading={isLoading}
                                 />
-                                <TouchableOpacity style={styles.button} onPress={handleMerchantVerifyOtp} disabled={isLoading}>
+                                <TouchableOpacity style={[styles.button, { marginTop: 15 }]} onPress={handleMerchantVerifyOtp} disabled={isLoading}>
                                     {isLoading ? (
                                         <ActivityIndicator color={COLORS.white} />
                                     ) : (
                                         <Text style={styles.buttonText}>Verify & Login</Text>
                                     )}
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setMerchantLoginStep(1)} style={styles.linkButton}>
-                                    <Text style={styles.linkText}>Back to Login</Text>
-                                </TouchableOpacity>
+
+                                <View style={styles.rowContainer}>
+                                    <TouchableOpacity
+                                        onPress={resendTimer > 0 ? null : handleSendLoginOtp}
+                                        style={styles.linkButton}
+                                        disabled={resendTimer > 0}
+                                    >
+                                        <Text style={[
+                                            styles.linkText,
+                                            { color: resendTimer > 0 ? COLORS.textSecondary : COLORS.primary, textDecorationLine: 'none' }
+                                        ]}>
+                                            {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => {
+                                        setMerchantLoginStep(1);
+                                        setResendTimer(0);
+                                    }} style={styles.linkButton}>
+                                        <Text style={styles.linkText}>Back to Login</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </>
                         )}
 
-                        <TouchableOpacity onPress={() => setIsForgotPassword(true)} style={styles.linkButton}>
-                            <Text style={[styles.linkText, { color: COLORS.textSecondary }]}>Forgot Password?</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>New User? </Text>
-                            <TouchableOpacity onPress={onRegisterClick}>
-                                <Text style={styles.registerLink}>SIGN UP</Text>
+                        <View style={[styles.rowContainer, { marginTop: 20 }]}>
+                            <TouchableOpacity onPress={() => setIsForgotPassword(true)} style={styles.linkButton}>
+                                <Text style={[styles.linkText, { color: COLORS.textSecondary, textDecorationLine: 'none' }]}>Forgot Password?</Text>
                             </TouchableOpacity>
+
+                            <View style={[styles.footer, { marginTop: 5 }]}>
+                                {/* <Text style={styles.footerText}> </Text> */}
+                                <TouchableOpacity onPress={onRegisterClick}>
+                                    <Text style={styles.registerLink}>New User!</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                         {/* <Text style={styles.envInfo}>
                         (Use 'merchant@test.com' for Merchant, else User)
@@ -595,6 +759,36 @@ const styles = StyleSheet.create({
     tabText: {
         fontWeight: 'bold',
         fontSize: 14,
+    },
+    rowContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginTop: 10,
+        paddingHorizontal: 5,
+    },
+    otpRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginVertical: 10,
+    },
+    otpBox: {
+        width: 45,
+        height: 55,
+        backgroundColor: COLORS.white,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: COLORS.primary, // Using primary gold for high contrast
+        textAlign: 'center',
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: COLORS.textPrimary,
+        elevation: 3, // Shadow for Android
+        shadowColor: '#000', // Shadow for iOS
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
 });
 

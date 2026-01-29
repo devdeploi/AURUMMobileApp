@@ -38,6 +38,9 @@ const MerchantProfile = ({
             setRefreshing(false);
         }
     };
+    console.log("User", user);
+    console.log("Profile Data", profileData);
+    
 
     return (
         <View style={{ flex: 1 }}>
@@ -75,7 +78,24 @@ const MerchantProfile = ({
                 {/* Minimal Profile Header */}
                 <View style={styles.profileHeaderMinimal}>
                     <View style={styles.profileRow}>
-                        <Icon name="user-circle" size={50} color={COLORS.primary} style={styles.avatarMinimal} />
+                        <TouchableOpacity
+                            onPress={() => isEditingProfile && handleImageUpload('shopLogo')}
+                            style={styles.avatarContainerMinimal}
+                        >
+                            {profileData.shopLogo ? (
+                                <Image
+                                    source={{ uri: `${APIURL.replace('/api', '')}${profileData.shopLogo}` }}
+                                    style={styles.avatarMinimal}
+                                />
+                            ) : (
+                                <Icon name="store" size={30} color={COLORS.primary} style={styles.avatarMinimal} />
+                            )}
+                            {isEditingProfile && (
+                                <View style={styles.avatarEditBadge}>
+                                    <Icon name="camera" size={10} color="#fff" />
+                                </View>
+                            )}
+                        </TouchableOpacity>
 
                         <View style={styles.profileInfoMinimal}>
                             <Text style={styles.profileNameMinimal}>{profileData.name || user.name}</Text>
@@ -94,7 +114,7 @@ const MerchantProfile = ({
                             style={styles.editBtnMinimal}
                             onPress={() => setIsEditingProfile(!isEditingProfile)}
                         >
-                            <Text style={styles.editBtnTextMinimal}>{isEditingProfile ? 'Done' : 'Edit'}</Text>
+                            <Text style={styles.editBtnTextMinimal}>{isEditingProfile ? 'Cancel' : 'Edit'}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -134,26 +154,57 @@ const MerchantProfile = ({
                                 />
                             </View>
 
-                            <View style={styles.inputRow}>
-                                <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                                    <Text style={styles.inputLabel}>Phone</Text>
-                                    <TextInput
-                                        style={[styles.input, styles.readOnlyInput]}
-                                        value={profileData.phone}
-                                        editable={false}
-                                        placeholder="Phone number"
-                                    />
-                                </View>
-                                <View style={[styles.inputGroup, { flex: 1 }]}>
-                                    <Text style={styles.inputLabel}>GSTIN</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={profileData.gstin}
-                                        onChangeText={(text) => setProfileData({ ...profileData, gstin: text })}
-                                        placeholder="GSTIN Number"
-                                    />
-                                </View>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Phone</Text>
+                                <TextInput
+                                    style={[styles.input, styles.readOnlyInput]}
+                                    value={profileData.phone}
+                                    editable={false}
+                                    placeholder="Phone number"
+                                />
                             </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>GSTIN</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={profileData.gstin}
+                                    onChangeText={(text) => setProfileData({ ...profileData, gstin: text.toUpperCase() })}
+                                    placeholder="GSTIN Number"
+                                    autoCapitalize="characters"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Legal Name (as per PAN)</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={profileData.legalName}
+                                    onChangeText={(text) => setProfileData({ ...profileData, legalName: text })}
+                                    placeholder="Full legal name"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>PAN Number</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={profileData.panNumber}
+                                    onChangeText={(text) => setProfileData({ ...profileData, panNumber: text.toUpperCase() })}
+                                    placeholder="PAN Number"
+                                    autoCapitalize="characters"
+                                />
+                            </View>
+
+                            {isEditingProfile && profileData.shopLogo && (
+                                <TouchableOpacity
+                                    style={styles.removeLogoBtn}
+                                    onPress={() => setProfileData({ ...profileData, shopLogo: '' })}
+                                >
+                                    <Icon name="trash-alt" size={12} color="#ef4444" />
+                                    <Text style={styles.removeLogoText}>Remove Shop Logo</Text>
+                                </TouchableOpacity>
+                            )}
 
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Business Address</Text>
@@ -203,6 +254,22 @@ const MerchantProfile = ({
                                     <Text style={styles.detailValue}>{profileData.gstin || 'Not registered'}</Text>
                                 </View>
                             </View>
+
+                            <View style={styles.detailItem}>
+                                <Icon name="id-card" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>Legal Name</Text>
+                                    <Text style={styles.detailValue}>{profileData.legalName || 'Not provided'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.detailItem}>
+                                <Icon name="id-badge" size={14} color={COLORS.secondary} style={styles.detailIcon} />
+                                <View>
+                                    <Text style={styles.detailLabel}>PAN Number</Text>
+                                    <Text style={styles.detailValue}>{profileData.panNumber || 'Not provided'}</Text>
+                                </View>
+                            </View>
                         </View>
                     )}
                 </View>
@@ -214,58 +281,36 @@ const MerchantProfile = ({
                             <Icon name="university" size={18} color={COLORS.primary} />
                             <Text style={styles.cardTitle}>Bank Details</Text>
                         </View>
-
-                        {profileData.bankDetails?.verificationStatus === 'verified' ? (
-                            <View style={styles.verifiedTag}>
-                                <Icon name="check-circle" size={12} color="#fff" />
-                                <Text style={styles.verifiedTagText}>Verified</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.unverifiedTag}>
-                                <Icon name="exclamation-circle" size={12} color="#fff" />
-                                <Text style={styles.unverifiedTagText}>Pending</Text>
-                            </View>
-                        )}
                     </View>
 
-                    {profileData.bankDetails?.verificationStatus === 'verified' && (
-                        <View style={styles.verifiedInfo}>
-                            <Text style={styles.verifiedInfoText}>
-                                Verified as: <Text style={styles.verifiedName}>{profileData.bankDetails.verifiedName}</Text>
-                            </Text>
-                        </View>
-                    )}
-
                     <View style={styles.bankForm}>
-                        <View style={styles.inputRow}>
-                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                                <Text style={styles.inputLabel}>Account Holder</Text>
-                                <TextInput
-                                    style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
-                                    value={profileData.bankDetails?.accountHolderName}
-                                    editable={isEditingProfile}
-                                    onChangeText={(text) => setProfileData({
-                                        ...profileData,
-                                        bankDetails: { ...profileData.bankDetails, accountHolderName: text }
-                                    })}
-                                    placeholder="Account holder name"
-                                />
-                            </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Account Holder</Text>
+                            <TextInput
+                                style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
+                                value={profileData.bankDetails?.accountHolderName}
+                                editable={isEditingProfile}
+                                onChangeText={(text) => setProfileData({
+                                    ...profileData,
+                                    bankDetails: { ...profileData.bankDetails, accountHolderName: text }
+                                })}
+                                placeholder="Account holder name"
+                            />
+                        </View>
 
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Account Number</Text>
-                                <TextInput
-                                    style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
-                                    value={profileData.bankDetails?.accountNumber}
-                                    editable={isEditingProfile}
-                                    onChangeText={(text) => setProfileData({
-                                        ...profileData,
-                                        bankDetails: { ...profileData.bankDetails, accountNumber: text }
-                                    })}
-                                    keyboardType="numeric"
-                                    placeholder="Account number"
-                                />
-                            </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Account Number</Text>
+                            <TextInput
+                                style={[styles.input, !isEditingProfile && styles.readOnlyInput]}
+                                value={profileData.bankDetails?.accountNumber}
+                                editable={isEditingProfile}
+                                onChangeText={(text) => setProfileData({
+                                    ...profileData,
+                                    bankDetails: { ...profileData.bankDetails, accountNumber: text }
+                                })}
+                                keyboardType="numeric"
+                                placeholder="Account number"
+                            />
                         </View>
 
                         <View style={styles.inputGroup}>
@@ -276,29 +321,13 @@ const MerchantProfile = ({
                                 editable={isEditingProfile}
                                 onChangeText={(text) => setProfileData({
                                     ...profileData,
-                                    bankDetails: { ...profileData.bankDetails, ifscCode: text }
+                                    bankDetails: { ...profileData.bankDetails, ifscCode: text.toUpperCase() }
                                 })}
                                 autoCapitalize="characters"
                                 placeholder="IFSC code"
                             />
                         </View>
 
-                        {isEditingProfile && (
-                            <TouchableOpacity
-                                style={[styles.verifyButton, verifyingBank && styles.verifyButtonDisabled]}
-                                onPress={verifyBankAccount}
-                                disabled={verifyingBank}
-                            >
-                                {verifyingBank ? (
-                                    <ActivityIndicator color="#fff" size="small" />
-                                ) : (
-                                    <>
-                                        <Icon name="shield-alt" size={14} color="#fff" />
-                                        <Text style={styles.verifyButtonText}>Verify Account</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        )}
                     </View>
                 </View>
 
@@ -520,7 +549,7 @@ const MerchantProfile = ({
                                 {/* Plan Comparison */}
                                 <View style={{ marginBottom: 24 }}>
                                     {/* Standard Plan Column */}
-                                    <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 16 }}>
+                                    {/* <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 16 }}>
                                         <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Standard Plan (Current)</Text>
                                         <View style={styles.featureItem}>
                                             <Icon name="check-circle" size={12} color="#94a3b8" style={{ marginRight: 10 }} />
@@ -542,11 +571,11 @@ const MerchantProfile = ({
                                             <Icon name="check-circle" size={12} color="#94a3b8" style={{ marginRight: 10 }} />
                                             <Text style={[styles.featureText, { color: '#64748b' }]}>Email Support</Text>
                                         </View>
-                                    </View>
+                                    </View> */}
 
                                     {/* Premium Plan Column */}
                                     <View>
-                                        <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.warning, marginBottom: 12, textTransform: 'uppercase' }}>Premium Plan (Upgrade)</Text>
+                                        {/* <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.warning, marginBottom: 12, textTransform: 'uppercase' }}>Premium Plan (Upgrade)</Text> */}
 
                                         <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
                                             <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
@@ -692,8 +721,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    avatarMinimal: {
+    avatarContainerMinimal: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#E8F4FF',
+        justifyContent: 'center',
+        alignItems: 'center',
         marginRight: 15,
+        overflow: 'hidden',
+    },
+    avatarMinimal: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 25,
+    },
+    avatarEditBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: COLORS.primary,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#fff',
     },
     profileInfoMinimal: {
         flex: 1,
@@ -1349,6 +1403,23 @@ const styles = StyleSheet.create({
     },
     toggleTextActive: {
         color: COLORS.primary,
+    },
+    removeLogoBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        marginBottom: 16,
+        backgroundColor: '#fef2f2',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#fee2e2',
+    },
+    removeLogoText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#ef4444',
+        marginLeft: 8,
     },
 });
 

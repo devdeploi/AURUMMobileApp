@@ -28,7 +28,7 @@ import AnalyticsTab from '../components/dashboard/AnalyticsTab';
 import ProfileTab from '../components/dashboard/ProfileTab';
 import CustomAlert from '../components/CustomAlert';
 
-const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, initialTab = 'dashboard' }) => {
+const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, onUserUpdate, initialTab = 'dashboard' }) => {
     const [user, setUser] = useState(initialUser);
     const [activeTab, setActiveTab] = useState(initialTab);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -204,7 +204,13 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
             const { data } = await axios.get(`${APIURL}/users/${userId}`, config);
 
             // Merge existing user data (like token) with new profile data
-            setUser(prev => ({ ...prev, ...data }));
+            const updatedUser = { ...user, ...data };
+            setUser(updatedUser);
+
+            // Notify App.tsx of the update if data changed
+            if (onUserUpdate && (data.plan !== user.plan || data.role !== user.role)) {
+                onUserUpdate(updatedUser);
+            }
         } catch (error) {
             console.error("Failed to refresh user profile", error);
         }
@@ -214,12 +220,12 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, in
         switch (activeTab) {
             case 'dashboard':
                 return (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fafafa' }}>
-                        <Icon name="chart-pie" size={48} color={COLORS.primary} style={{ opacity: 0.8, marginBottom: 16 }} />
-                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>Dashboard</Text>
-                        <Text style={{ fontSize: 14, color: '#666' }}>Your financial overview is creating...</Text>
-                    </View>
-                    // <DashboardTab user={user} />
+                    // <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fafafa' }}>
+                    //     <Icon name="chart-pie" size={48} color={COLORS.primary} style={{ opacity: 0.8, marginBottom: 16 }} />
+                    //     <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>Dashboard</Text>
+                    //     <Text style={{ fontSize: 14, color: '#666' }}>Your financial overview is creating...</Text>
+                    // </View>
+                    <DashboardTab user={user} />
                 );
             case 'merchants':
                 return (
