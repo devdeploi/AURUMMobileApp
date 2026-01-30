@@ -183,10 +183,11 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
     if (pieData.length === 0) {
         pieData.push({
             name: "No Subscribers",
-            population: 1,
+            population: 0,
             color: "#e0e0e0",
             legendFontColor: "#7F7F7F",
-            legendFontSize: 12
+            legendFontSize: 12,
+            isPlaceholder: true
         });
     }
 
@@ -367,7 +368,7 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                     <Text style={styles.sectionTitle}>Plan Distribution</Text>
                     <View style={styles.donutContainer}>
                         <PieChart
-                            data={pieData}
+                            data={pieData.map(item => item.isPlaceholder ? { ...item, population: 1 } : item)}
                             width={width}
                             height={220}
                             chartConfig={{

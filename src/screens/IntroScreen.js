@@ -60,7 +60,7 @@ const IntroScreen = ({ onFinish }) => {
                             source={require('../assets/AURUM.png')}
                             style={styles.logo}
                         />
-                        <Text style={styles.appTitle}>A U R U M</Text>
+                        {/* <Text style={styles.appTitle}>A U R U M</Text> */}
                         <Text style={styles.tagline}>Future of Chit Funds</Text>
                     </View>
                 ) : (
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
         width: 150,
         height: 150,
         resizeMode: 'contain',
-        marginBottom: 20,
+        marginBottom: 10,
     },
     appTitle: {
         fontSize: 32,
@@ -110,21 +110,24 @@ const styles = StyleSheet.create({
     },
     tagline: {
         fontSize: 16,
-        color: COLORS.secondary,
+        color: COLORS.primary,
         letterSpacing: 1,
         fontStyle: 'italic',
+        fontWeight: 'bold',
     },
     poweredBy: {
         fontSize: 14,
-        color: COLORS.secondary,
-        marginBottom: 10,
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        // marginBottom: 1,
         letterSpacing: 2,
         textTransform: 'uppercase',
+        fontStyle: 'italic',
     },
     safproBoxLogo: {
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 10,
+        // paddingVertical: 10,
     },
     safproLogo: {
         width: 200,

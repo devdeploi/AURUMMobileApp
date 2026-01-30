@@ -64,7 +64,7 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
     };
 
     return (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
             style={styles.wrapper}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
@@ -73,10 +73,10 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl 
-                        refreshing={refreshing} 
-                        onRefresh={handleRefresh} 
-                        colors={[COLORS.primary]} 
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={[COLORS.primary]}
                         tintColor={COLORS.primary}
                     />
                 }
@@ -152,8 +152,8 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                     <Text style={styles.profileEmailHeader}>{user.email}</Text>
                                 </>
                             ) : (
-                                <TouchableOpacity 
-                                    onPress={onUpdateImage} 
+                                <TouchableOpacity
+                                    onPress={onUpdateImage}
                                     style={styles.editAvatarButton}
                                     activeOpacity={0.8}
                                 >
@@ -168,7 +168,7 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                     {isEditing ? (
                         <View style={styles.editForm}>
                             <Text style={styles.formTitle}>Edit Profile</Text>
-                            
+
                             {/* Form Inputs */}
                             <View style={styles.inputGroup}>
                                 <View style={styles.inputLabelRow}>
@@ -309,7 +309,7 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                         <Text style={styles.infoValue}>{user.email}</Text>
                                     </View>
                                 </View>
-                            </View>                            
+                            </View>
                         </View>
                     )}
                 </View>
@@ -587,9 +587,9 @@ const styles = StyleSheet.create({
         gap: 14,
     },
     infoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexDirection: 'column',
         alignItems: 'flex-start',
+        gap: 6,
     },
     infoLabelContainer: {
         flexDirection: 'row',
@@ -606,9 +606,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: COLORS.dark,
         fontWeight: '500',
-        flex: 1.5,
-        textAlign: 'right',
-        marginLeft: 16,
     },
     infoValueEmpty: {
         color: '#adb5bd',

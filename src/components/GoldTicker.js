@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const { width } = Dimensions.get('window');
 
-const GoldTicker = () => {
+const GoldTicker = ({ onRateUpdate }) => {
     const [goldRate, setGoldRate] = useState({ price: 0, loading: true });
     const shimmerValue = useRef(new Animated.Value(0)).current;
 
@@ -19,10 +19,16 @@ const GoldTicker = () => {
                     const pricePerOunce = data.items[0].xauPrice;
                     const marketPrice = pricePerOunce / 31.1035;
                     const buyPrice = marketPrice * 1.03;
+                    const finalPrice = buyPrice.toFixed(2);
+
                     setGoldRate({
-                        price: buyPrice.toFixed(2),
+                        price: finalPrice,
                         loading: false
                     });
+
+                    if (onRateUpdate) {
+                        onRateUpdate(parseFloat(finalPrice));
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch gold price", error);
@@ -44,7 +50,7 @@ const GoldTicker = () => {
         ).start();
 
         return () => clearInterval(interval);
-    }, [shimmerValue]);
+    }, [shimmerValue, onRateUpdate]);
 
     const translateX = shimmerValue.interpolate({
         inputRange: [0, 1],
@@ -83,7 +89,7 @@ const GoldTicker = () => {
                         </View>
                     </View>
 
-                    
+
                 </View>
             </View>
         </View>

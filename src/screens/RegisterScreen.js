@@ -62,7 +62,8 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
 
         setIsLoading(true);
         try {
-            await axios.post(`${APIURL}/merchants/send-reg-otp`, { email, phone });
+            const response = await axios.post(`${APIURL}/merchants/send-reg-otp`, { email, phone });
+            console.log('Send Reg OTP Success:', response.data);
             setAlertConfig({
                 visible: true,
                 title: 'Success',
@@ -71,6 +72,9 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
                 buttons: [{ text: 'OK', onPress: () => setStep(2) }]
             });
         } catch (error) {
+            console.log('Send Reg OTP Error:', error.response?.data || error.message);
+            console.log("error", error);
+
             console.error(error);
             setAlertConfig({
                 visible: true,
@@ -92,7 +96,8 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
         setIsLoading(true);
         try {
             // 1. Verify OTP
-            await axios.post(`${APIURL}/merchants/verify-reg-otp`, { email, otp });
+            const verifyRes = await axios.post(`${APIURL}/merchants/verify-reg-otp`, { email, otp });
+            console.log('Verify Reg OTP Success:', verifyRes.data);
 
             // 2. Register User
             const userData = {
@@ -105,6 +110,7 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
             };
 
             const { data } = await axios.post(`${APIURL}/users`, userData);
+            console.log('User Registration Success:', data);
 
             setAlertConfig({
                 visible: true,
@@ -121,6 +127,7 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
             });
 
         } catch (error) {
+            console.log('Registration Error:', error.response?.data || error.message);
             console.error(error);
             setAlertConfig({
                 visible: true,

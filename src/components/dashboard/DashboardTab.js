@@ -7,12 +7,18 @@ import { LineChart, PieChart } from 'react-native-chart-kit'; // Ensure this is 
 import axios from 'axios';
 import { APIURL } from '../../constants/api';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import Slider from '@react-native-community/slider';
 
 const { width } = Dimensions.get('window');
 
-const DashboardTab = ({ user }) => {
+const DashboardTab = ({ user, goldRate: propGoldRate }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // SIP Calculator State
+    const [calcAmount, setCalcAmount] = useState(5000);
+    const [calcMonths, setCalcMonths] = useState(20);
+
     const [stats, setStats] = useState({
         totalSaved: 0,
         activeChits: 0,
@@ -28,6 +34,9 @@ const DashboardTab = ({ user }) => {
             fetchDashboardData();
         }
     }, [user]);
+
+    // Use goldRate from prop
+    const goldRate = propGoldRate || 0;
 
     const fetchDashboardData = async () => {
         // Only set main loading if not refreshing
@@ -157,30 +166,37 @@ const DashboardTab = ({ user }) => {
                     </View>
                 </View>
 
-                {/* Savings Growth Chart */}
-                <View style={styles.chartContainer}>
-                    <Text style={styles.chartTitle}>Savings Growth (6 Months)</Text>
-                    <LineChart
-                        data={{
-                            labels: monthlyData.labels,
-                            datasets: [{ data: monthlyData.data }]
-                        }}
-                        width={width - 60}
-                        height={220}
-                        // yAxisLabel="₹"
-                        formatYLabel={(value) => {
-                            const val = parseFloat(value);
-                            return val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val;
-                        }}
-                        yAxisInterval={1} // optional, defaults to 1
-                        chartConfig={chartConfig}
-                        bezier
-                        style={{
-                            marginVertical: 8,
-                            borderRadius: 16
-                        }}
-                        withInnerLines={false}
-                    />
+                {/* Gold Equivalence - For Display Representation */}
+                <View style={styles.goldVaultCard}>
+                    <View style={styles.vaultHeader}>
+                        <View style={styles.vaultTitleCol}>
+                            <Text style={styles.vaultLabel}>Gold Accumulation Value</Text>
+                            <View style={styles.purityBadge}>
+                                <Text style={styles.purityText}>Indicative Weight (24K)</Text>
+                            </View>
+                        </View>
+                        <Icon name="coins" size={24} color={COLORS.primary} />
+                    </View>
+
+                    <View style={styles.vaultBody}>
+                        <View style={styles.weightDisplay}>
+                            <Text style={styles.goldWeight}>
+                                {goldRate > 0 ? (stats.totalSaved / goldRate).toFixed(3) : '0.000'}
+                            </Text>
+                            <Text style={styles.weightUnit}>GRAMS</Text>
+                        </View>
+
+                        <View style={styles.vaultDivider} />
+
+                        <View style={styles.vaultFooter}>
+                            <View style={{ width: '100%', alignItems: 'center' }}>
+                                <Text style={styles.footerMinLabel}>Total Amount Saved</Text>
+                                <Text style={styles.footerMinVal}>₹{stats.totalSaved.toLocaleString()}</Text>
+                            </View>
+                        </View>
+
+                        <Text style={styles.disclaimerText}>* For representation only. Based on market rate.</Text>
+                    </View>
                 </View>
 
                 {/* Plan Distribution (Pie) */}
@@ -221,6 +237,71 @@ const DashboardTab = ({ user }) => {
                         </ScrollView>
                     </View>
                 )}
+
+                {/* SIP Calculator - Interactive Card */}
+                <View style={styles.calculatorCard}>
+                    <View style={styles.calcHeader}>
+                        <View style={styles.calcTitleRow}>
+                            <Icon name="gem" size={16} color={COLORS.primary} />
+                            <Text style={styles.calcTitle}>SIP Calculator</Text>
+                        </View>
+                        <Text style={styles.headerSubtitle}>Quick Estimate</Text>
+                    </View>
+
+                    <View style={styles.calcBody}>
+                        <View style={styles.inputGroup}>
+                            <View style={styles.inputLabelRow}>
+                                <Text style={styles.inputLabel}>Monthly Contribution</Text>
+                                <Text style={styles.inputValue}>₹{calcAmount.toLocaleString()}</Text>
+                            </View>
+                            <Slider
+                                style={styles.slider}
+                                minimumValue={1000}
+                                maximumValue={50000}
+                                step={1000}
+                                value={calcAmount}
+                                onValueChange={setCalcAmount}
+                                minimumTrackTintColor={COLORS.primary}
+                                maximumTrackTintColor="#E2E8F0"
+                                thumbTintColor={COLORS.primary}
+                            />
+                        </View>
+
+                        <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                            <View style={styles.inputLabelRow}>
+                                <Text style={styles.inputLabel}>Duration (Months)</Text>
+                                <Text style={styles.inputValue}>{calcMonths} Mo</Text>
+                            </View>
+                            <Slider
+                                style={styles.slider}
+                                minimumValue={10}
+                                maximumValue={50}
+                                step={5}
+                                value={calcMonths}
+                                onValueChange={setCalcMonths}
+                                minimumTrackTintColor={COLORS.primary}
+                                maximumTrackTintColor="#E2E8F0"
+                                thumbTintColor={COLORS.primary}
+                            />
+                        </View>
+
+                        {/* Unique Maturity Display */}
+                        <View style={styles.maturityShowcase}>
+                            <View style={styles.glowRef} />
+                            <View style={styles.maturityContent}>
+                                <Text style={styles.maturityLabel}>Maturity Fund</Text>
+                                <View style={styles.amountWrap}>
+                                    <Text style={styles.currencySymbol}>₹</Text>
+                                    <Text style={styles.mainAmount}>{(calcAmount * calcMonths).toLocaleString()}</Text>
+                                </View>
+                                <View style={styles.targetIndicator}>
+                                    <Icon name="rocket" size={10} color={COLORS.primary} />
+                                    <Text style={styles.targetText}>Expected Growth Target</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
 
                 {/* Recent Activity List - Horizontal Scroll */}
                 <Text style={styles.sectionTitle}>Your Active Chits</Text>
@@ -464,6 +545,221 @@ const styles = StyleSheet.create({
         right: 0,
         height: 60,
         zIndex: 20
+    },
+    // Calculator Styles
+    calculatorCard: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 20,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+    },
+    calcHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    calcTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10
+    },
+    calcTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.dark,
+        marginLeft: 8
+    },
+    headerSubtitle: {
+        fontSize: 10,
+        color: COLORS.secondary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        fontWeight: '600'
+    },
+    maturityShowcase: {
+        marginTop: 15,
+        alignItems: 'center',
+        paddingVertical: 10,
+        position: 'relative'
+    },
+    glowRef: {
+        position: 'absolute',
+        top: '20%',
+        width: '60%',
+        height: 40,
+        backgroundColor: COLORS.primary + '10',
+        borderRadius: 30,
+        filter: 'blur(20px)', // Note: standard RN doesn't support filter, we'll use a themed circle
+        opacity: 0.5
+    },
+    maturityContent: {
+        alignItems: 'center',
+    },
+    maturityLabel: {
+        fontSize: 10,
+        color: COLORS.secondary,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        marginBottom: 5,
+    },
+    amountWrap: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    currencySymbol: {
+        fontSize: 20,
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        marginTop: 5,
+        marginRight: 2,
+    },
+    mainAmount: {
+        fontSize: 38,
+        fontWeight: '900',
+        color: COLORS.dark,
+        letterSpacing: -1,
+    },
+    targetIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+        backgroundColor: '#F1F5F9',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+    },
+    targetText: {
+        fontSize: 10,
+        color: COLORS.secondary,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    calcBody: {
+        gap: 5
+    },
+    inputGroup: {
+        marginBottom: 10
+    },
+    inputLabelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4
+    },
+    inputLabel: {
+        fontSize: 12,
+        color: COLORS.secondary,
+        fontWeight: '500'
+    },
+    inputValue: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.primary
+    },
+    slider: {
+        width: '100%',
+        height: 30
+    },
+    // Gold Vault Styles
+    goldVaultCard: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 24,
+        marginBottom: 20,
+        elevation: 4,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 169, 100, 0.1)'
+    },
+    vaultHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 15
+    },
+    vaultTitleCol: {
+        gap: 4
+    },
+    vaultLabel: {
+        fontSize: 14,
+        color: COLORS.secondary,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1
+    },
+    purityBadge: {
+        backgroundColor: COLORS.primary + '15',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        alignSelf: 'flex-start'
+    },
+    purityText: {
+        fontSize: 10,
+        color: COLORS.primary,
+        fontWeight: 'bold'
+    },
+    vaultBody: {
+        alignItems: 'center'
+    },
+    weightDisplay: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginVertical: 10
+    },
+    goldWeight: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: COLORS.dark,
+        letterSpacing: -1
+    },
+    weightUnit: {
+        fontSize: 14,
+        color: COLORS.secondary,
+        fontWeight: '700',
+        marginLeft: 8,
+        letterSpacing: 1
+    },
+    vaultDivider: {
+        width: '100%',
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginVertical: 15
+    },
+    vaultFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%'
+    },
+    footerMinLabel: {
+        fontSize: 10,
+        color: COLORS.secondary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 4
+    },
+    footerMinVal: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: COLORS.dark
+    },
+    disclaimerText: {
+        fontSize: 9,
+        color: COLORS.secondary,
+        fontStyle: 'italic',
+        marginTop: 12,
+        textAlign: 'center',
+        opacity: 0.8
     }
 });
 

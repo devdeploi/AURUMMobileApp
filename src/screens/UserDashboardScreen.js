@@ -1,8 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-native/no-inline-styles */
 import LinearGradient from 'react-native-linear-gradient';
-
-// ... (existing imports)
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -33,6 +31,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
     const [activeTab, setActiveTab] = useState(initialTab);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [refreshingMerchants, setRefreshingMerchants] = useState(false);
+    const [goldRate, setGoldRate] = useState(0);
 
 
     // Merchants State
@@ -225,7 +224,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                     //     <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>Dashboard</Text>
                     //     <Text style={{ fontSize: 14, color: '#666' }}>Your financial overview is creating...</Text>
                     // </View>
-                    <DashboardTab user={user} />
+                    <DashboardTab user={user} goldRate={goldRate} />
                 );
             case 'merchants':
                 return (
@@ -269,9 +268,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                         <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
                         <Text style={styles.appTitle}>A U R U M</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                        <GoldTicker />
-                    </View>
+                    <GoldTicker onRateUpdate={setGoldRate} />
                 </View>
 
                 <View style={{ flex: 1, backgroundColor: 'transparent' }}>

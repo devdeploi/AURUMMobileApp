@@ -21,7 +21,7 @@ import axios from 'axios';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../styles/theme';
-import { APIURL } from '../constants/api';
+import { APIURL, BASE_URL } from '../constants/api';
 
 import CustomAlert from '../components/CustomAlert';
 import FCMService from '../services/FCMService';
@@ -140,6 +140,8 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
     };
 
     const handleLogin = async () => {
+        console.log('Attempting login to:', `${APIURL}/users/login`);
+        console.log('Using APIURL:', APIURL);
         // If Phone regex logic needed, can be added. Backend handles "email" field as identifier usually.
         if (password.length === 0 && loginMode === 'password') {
             setAlertConfig({ visible: true, title: 'Error', message: 'Please enter password', type: 'error' });
@@ -149,16 +151,33 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         setIsLoading(true);
 
         try {
+            // Diagnostic Ping
+            try {
+                const ping = await axios.get(BASE_URL, { timeout: 5000 });
+                console.log('Diagnostic Ping Success:', ping.data);
+            } catch (pErr) {
+                console.log('Diagnostic Ping Error:', pErr.message);
+            }
+
             // Try User/Admin Login first if password mode
             // Note: Users currently only have password login.
             if (loginMode === 'password') {
                 try {
                     const { data } = await axios.post(`${APIURL}/users/login`, { email, password });
+                    console.log('User Login Success:', data);
+
+                    if (data.role === 'admin') {
+                        setAlertConfig({ visible: true, title: 'Access Denied', message: 'Admin login is not allowed on mobile.', type: 'error' });
+                        setIsLoading(false);
+                        return;
+                    }
+
                     await FCMService.registerToken(data._id, data.role, data.token);
                     FCMService.displayLocalNotification('Welcome Back!', `Welcome back, ${data.name || 'User'}!`);
                     onLogin(data.role, data);
                     return; // Success
                 } catch (err) {
+                    console.log('User Login Error:', err.response?.data || err.message);
                     // Fallthrough to Merchant check
                 }
             }
@@ -171,6 +190,7 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 // Let's separate it. This function is for Password Login button.
 
                 const { data } = await axios.post(`${APIURL}/merchants/login`, { email, password });
+                console.log('Merchant Login Success:', data);
 
                 if (data.otpSent) {
                     setMerchantLoginStep(2);
@@ -185,6 +205,7 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                     onLogin('merchant', data);
                 }
             } catch (err) {
+                console.log('Merchant Login Error:', err.response?.data || err.message);
                 // If password mode failed for both
                 const msg = err.response?.data?.message || 'Invalid credentials';
                 setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
@@ -204,11 +225,13 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         }
         setIsLoading(true);
         try {
-            await axios.post(`${APIURL}/merchants/send-login-otp`, { email });
+            const response = await axios.post(`${APIURL}/merchants/send-login-otp`, { email });
+            console.log('Send Login OTP Success:', response.data);
             setMerchantLoginStep(2); // Move to OTP entry
             setResendTimer(60);
             setAlertConfig({ visible: true, title: 'Success', message: 'OTP Sent successfully', type: 'success' });
         } catch (error) {
+            console.log('Send Login OTP Error:', error.response?.data || error.message);
             const msg = error.response?.data?.message || 'Failed to send OTP. Check if registered.';
             setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
         } finally {
@@ -228,10 +251,14 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 email,
                 otp: otpString
             });
+            console.log('Verify Merchant OTP Success:', data);
             await FCMService.registerToken(data._id, 'merchant', data.token);
             FCMService.displayLocalNotification('OTP Verified', 'Merchant login successful.');
             onLogin('merchant', data);
         } catch (err) {
+            console.log('Verify Merchant OTP Error:', err.response?.data || err.message);
+            console.log("error", err);
+
             const msg = err.response?.data?.message || 'Invalid OTP';
             setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
         } finally {
@@ -244,10 +271,12 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
             setIsLoading(true);
             try {
                 const { data } = await axios.post(`${APIURL}/forgot-password`, { email: resetEmail });
+                console.log('Forgot Password OTP Success:', data);
                 setAlertConfig({ visible: true, title: 'OTP Sent', message: data.message || 'OTP sent to your registered email/phone', type: 'success' });
                 setResetStep(2);
                 setResendTimer(60);
             } catch (error) {
+                console.log('Forgot Password OTP Error:', error.response?.data || error.message);
                 const msg = error.response?.data?.message || 'Failed to send OTP. Account not found.';
                 setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
             } finally {
@@ -263,9 +292,11 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         if (otpString.length === 6) {
             setIsLoading(true);
             try {
-                await axios.post(`${APIURL}/verify-otp`, { email: resetEmail, otp: otpString });
+                const response = await axios.post(`${APIURL}/verify-otp`, { email: resetEmail, otp: otpString });
+                console.log('Verify OTP Success:', response.data);
                 setResetStep(3);
             } catch (error) {
+                console.log('Verify OTP Error:', error.response?.data || error.message);
                 const msg = error.response?.data?.message || 'Invalid or expired OTP';
                 setAlertConfig({ visible: true, title: 'Error', message: msg, type: 'error' });
             } finally {
@@ -285,6 +316,7 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                     otp: otp.join(''),
                     newPassword
                 });
+                console.log('Reset Password Success:', data);
                 setAlertConfig({
                     visible: true,
                     title: 'Success',

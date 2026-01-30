@@ -18,6 +18,7 @@ import FCMService from './src/services/FCMService';
 import SchoolHubAd from './src/components/SchoolHubAd';
 import QuickproAd from './src/components/QuickproAd';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Role = 'merchant' | 'user';
 
@@ -29,17 +30,37 @@ interface UserData {
   plan: string | null;
   phone?: string;
   address?: string;
+  token?: string;
 }
 
 function App() {
   /* ... inside App component ... */
-  const [currentScreen, setCurrentScreen] = useState<string>('INTRO'); // INTRO, LOGIN, REGISTER, MERCHANT_DASHBOARD, USER_DASHBOARD, MERCHANT_DETAILS
+  const [currentScreen, setCurrentScreen] = useState<string>('INTRO');
   const [user, setUser] = useState<UserData | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
   const [dashboardStartTab, setDashboardStartTab] = useState<string>('dashboard');
   const [showAd, setShowAd] = useState(false);
   const [selectedAd, setSelectedAd] = useState<'quickpro' | 'schoolhub'>('quickpro');
   const [areAdsPaused, setAreAdsPaused] = useState(false);
+
+  // Check for stored session on mount
+  React.useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('user_session');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error('Error reading session:', error);
+      } finally {
+        setIsLoadingSession(false);
+      }
+    };
+    checkSession();
+  }, []);
 
   const pauseAds = () => {
     setAreAdsPaused(true);
@@ -87,8 +108,14 @@ function App() {
     return unsubscribe;
   }, []);
 
-  const handleLogin = (role: string, userData: UserData) => {
+  const handleLogin = async (role: string, userData: UserData) => {
     setUser(userData);
+    try {
+      await AsyncStorage.setItem('user_session', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Error saving session:', error);
+    }
+
     if (role === 'merchant') {
       setCurrentScreen('MERCHANT_DASHBOARD');
     } else {
@@ -97,7 +124,12 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('user_session');
+    } catch (error) {
+      console.error('Error removing session:', error);
+    }
     setUser(null);
     setCurrentScreen('LOGIN');
     setSelectedMerchant(null);
@@ -107,11 +139,16 @@ function App() {
     setCurrentScreen('REGISTER');
   };
 
-  const handleRegisterSubmit = (userData: UserData) => {
+  const handleRegisterSubmit = async (userData: UserData) => {
     // Auto login after register? Or go to Login? 
     // User prompt: "before user login he needs to register". Implicitly go to login after or auto-login.
     // Let's auto-login for better UX.
     setUser(userData);
+    try {
+      await AsyncStorage.setItem('user_session', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Error saving session:', error);
+    }
     if (userData.role === 'merchant') {
       setCurrentScreen('MERCHANT_DASHBOARD');
     } else {
@@ -129,10 +166,33 @@ function App() {
     setCurrentScreen('USER_DASHBOARD');
   };
 
+  const handleUserUpdate = async (updatedUser: any) => {
+    setUser(updatedUser);
+    try {
+      await AsyncStorage.setItem('user_session', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Error updating session:', error);
+    }
+  };
+
   const renderScreen = () => {
+    if (isLoadingSession) {
+      return <View style={{ flex: 1, backgroundColor: COLORS.backgroundGradient[0] }} />;
+    }
+
     switch (currentScreen) {
       case 'INTRO':
-        return <IntroScreen onFinish={() => setCurrentScreen('LOGIN')} />;
+        return (
+          <IntroScreen
+            onFinish={() => {
+              if (user) {
+                setCurrentScreen(user.role === 'merchant' ? 'MERCHANT_DASHBOARD' : 'USER_DASHBOARD');
+              } else {
+                setCurrentScreen('LOGIN');
+              }
+            }}
+          />
+        );
       case 'LOGIN':
         return (
           <LoginScreen
@@ -152,7 +212,7 @@ function App() {
           <MerchantDashboardScreen
             user={user}
             onLogout={handleLogout}
-            onUserUpdate={(updatedUser: any) => setUser(updatedUser)}
+            onUserUpdate={handleUserUpdate}
             pauseAds={pauseAds}
             resumeAds={resumeAds}
           />
@@ -163,7 +223,7 @@ function App() {
             user={user}
             onLogout={handleLogout}
             onSelectMerchant={handleSelectMerchant}
-            onUserUpdate={(updatedUser: any) => setUser(updatedUser)}
+            onUserUpdate={handleUserUpdate}
             initialTab={dashboardStartTab}
           />
         );
