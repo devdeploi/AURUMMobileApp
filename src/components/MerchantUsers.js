@@ -165,13 +165,21 @@ const MerchantUsers = ({ user }) => {
         setLoading(true);
         try {
             // 1. Load Logos
-            const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
-            const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
-            const aurumLogoImgTag = aurumLogoBase64 ? `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />` : 'AURUM';
+            let aurumLogoImgTag = 'AURUM';
+            let safproLogoImgTag = 'Safpro';
 
-            const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
-            const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
-            const safproLogoImgTag = safproLogoBase64 ? `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />` : 'Safpro';
+            if (Platform.OS === 'android' && !__DEV__) {
+                aurumLogoImgTag = `<img src="file:///android_asset/AURUM.png" style="width: 70px; height: auto;" />`;
+                safproLogoImgTag = `<img src="file:///android_asset/Safpro-logo.png" style="width: 120px; height: auto;" />`;
+            } else {
+                const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
+                const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
+                if (aurumLogoBase64) aurumLogoImgTag = `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />`;
+
+                const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
+                const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
+                if (safproLogoBase64) safproLogoImgTag = `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />`;
+            }
 
             let shopLogoImgTag = '';
             if (user.shopLogo) {
@@ -307,13 +315,21 @@ const MerchantUsers = ({ user }) => {
         setLoading(true);
         try {
             // 1. Load Logos
-            const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
-            const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
-            const aurumLogoImgTag = aurumLogoBase64 ? `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />` : 'AURUM';
+            let aurumLogoImgTag = 'AURUM';
+            let safproLogoImgTag = 'Safpro';
 
-            const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
-            const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
-            const safproLogoImgTag = safproLogoBase64 ? `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />` : 'Safpro';
+            if (Platform.OS === 'android' && !__DEV__) {
+                aurumLogoImgTag = `<img src="file:///android_asset/AURUM.png" style="width: 70px; height: auto;" />`;
+                safproLogoImgTag = `<img src="file:///android_asset/Safpro-logo.png" style="width: 120px; height: auto;" />`;
+            } else {
+                const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
+                const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
+                if (aurumLogoBase64) aurumLogoImgTag = `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />`;
+
+                const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
+                const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
+                if (safproLogoBase64) safproLogoImgTag = `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />`;
+            }
 
             let shopLogoImgTag = '';
             if (user.shopLogo) {

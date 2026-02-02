@@ -72,7 +72,10 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
 
         setLoadingMerchants(true);
         try {
-            const { data } = await axios.get(`${APIURL}/merchants?page=${page}&limit=10`);
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` }
+            };
+            const { data } = await axios.get(`${APIURL}/merchants?page=${page}&limit=10`, config);
 
             if (page === 1) {
                 setMerchants(data.merchants);
@@ -102,7 +105,10 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                 const loadMore = async () => {
                     setLoadingMerchants(true);
                     try {
-                        const { data } = await axios.get(`${APIURL}/merchants?page=${page}&limit=10`);
+                        const config = {
+                            headers: { Authorization: `Bearer ${user.token}` }
+                        };
+                        const { data } = await axios.get(`${APIURL}/merchants?page=${page}&limit=10`, config);
                         setMerchants(prev => [...prev, ...data.merchants]);
                         setHasMoreMerchants(data.pagination.hasNextPage);
                     } catch (error) {
@@ -117,7 +123,10 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                 const initialLoad = async () => {
                     setLoadingMerchants(true);
                     try {
-                        const { data } = await axios.get(`${APIURL}/merchants?page=${1}&limit=10`);
+                        const config = {
+                            headers: { Authorization: `Bearer ${user.token}` }
+                        };
+                        const { data } = await axios.get(`${APIURL}/merchants?page=${1}&limit=10`, config);
                         setMerchants(data.merchants);
                         setHasMoreMerchants(data.pagination.hasNextPage);
                     } catch (error) {
@@ -138,7 +147,10 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
         setPage(1);
 
         try {
-            const { data } = await axios.get(`${APIURL}/merchants?page=1&limit=10`);
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` }
+            };
+            const { data } = await axios.get(`${APIURL}/merchants?page=1&limit=10`, config);
             setMerchants(data.merchants);
             setHasMoreMerchants(data.pagination.hasNextPage);
         } catch (error) {
@@ -158,7 +170,10 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
     const handleUpdateProfile = async (updatedData) => {
         try {
             const userId = user._id || user.id;
-            const { data } = await axios.put(`${APIURL}/users/${userId}`, updatedData);
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` }
+            };
+            const { data } = await axios.put(`${APIURL}/users/${userId}`, updatedData, config);
             setUser({ ...user, ...data });
             setAlertConfig({ visible: true, title: 'Success', message: 'Profile updated successfully', type: 'success' });
         } catch (error) {

@@ -69,10 +69,12 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
 
     const handleCreateOrUpdatePlan = async () => {
         if (!newPlan.name || !newPlan.amount || !newPlan.duration) {
-            Toast.show({
+            setAlertConfig({
+                visible: true,
+                title: 'Validation Error',
+                message: 'Please fill all required fields',
                 type: 'error',
-                text1: 'Validation Error',
-                text2: 'Please fill all required fields'
+                buttons: [{ text: 'OK', onPress: hideAlert }]
             });
             return;
         }
@@ -97,19 +99,23 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                 await axios.put(`${APIURL}/chit-plans/${editingPlanId}`, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                Toast.show({
+                setAlertConfig({
+                    visible: true,
+                    title: 'Success',
+                    message: 'Plan updated successfully',
                     type: 'success',
-                    text1: 'Success',
-                    text2: 'Plan updated successfully'
+                    buttons: [{ text: 'OK', onPress: hideAlert }]
                 });
             } else {
                 await axios.post(`${APIURL}/chit-plans`, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                Toast.show({
+                setAlertConfig({
+                    visible: true,
+                    title: 'Success',
+                    message: 'Plan created successfully',
                     type: 'success',
-                    text1: 'Success',
-                    text2: 'Plan created successfully'
+                    buttons: [{ text: 'OK', onPress: hideAlert }]
                 });
             }
 
@@ -120,10 +126,12 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
             }
         } catch (error) {
             console.error(error);
-            Toast.show({
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: isEditing ? 'Failed to update plan' : 'Failed to create plan',
                 type: 'error',
-                text1: 'Error',
-                text2: isEditing ? 'Failed to update plan' : 'Failed to create plan'
+                buttons: [{ text: 'OK', onPress: hideAlert }]
             });
         } finally {
             setCreatingPlan(false);
@@ -178,20 +186,24 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
             await axios.delete(`${APIURL}/chit-plans/${planId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            Toast.show({
+            setAlertConfig({
+                visible: true,
+                title: 'Success',
+                message: 'Plan deleted successfully',
                 type: 'success',
-                text1: 'Success',
-                text2: 'Plan deleted successfully'
+                buttons: [{ text: 'OK', onPress: hideAlert }]
             });
             if (onRefresh) {
                 onRefresh();
             }
         } catch (error) {
             console.error(error);
-            Toast.show({
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: 'Failed to delete plan. Ensure it has no active subscriptions.',
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to delete plan. Ensure it has no active subscriptions.'
+                buttons: [{ text: 'OK', onPress: hideAlert }]
             });
         }
     };
@@ -328,77 +340,91 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                 <Modal visible={showCreatePlanModal} transparent animationType="slide" onRequestClose={() => setShowCreatePlanModal(false)}>
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>{isEditing ? 'Edit Plan' : 'Create New Plan'}</Text>
-                                <TouchableOpacity onPress={() => setShowCreatePlanModal(false)}>
-                                    <Icon name="times" size={20} color={COLORS.secondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView style={styles.fullWidth} showsVerticalScrollIndicator={false}>
-                                <Text style={styles.label}>Plan Name</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="e.g. Gold Saver"
-                                    value={newPlan.name}
-                                    onChangeText={(text) => setNewPlan({ ...newPlan, name: text })}
-                                />
-
-                                <Text style={styles.label}>Total Amount (₹)</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="5000"
-                                    keyboardType="numeric"
-                                    value={newPlan.amount}
-                                    onChangeText={(text) => setNewPlan({ ...newPlan, amount: text })}
-                                />
-
-                                <Text style={styles.label}>Duration: {newPlan.duration} Months</Text>
-                                <View style={styles.sliderContainer}>
-                                    <Slider
-                                        style={{ width: '100%', height: 40 }}
-                                        minimumValue={3}
-                                        maximumValue={60}
-                                        step={1}
-                                        value={newPlan.duration}
-                                        onValueChange={(val) => setNewPlan({ ...newPlan, duration: val })}
-                                        minimumTrackTintColor={COLORS.primary}
-                                        maximumTrackTintColor="#d3d3d3"
-                                        thumbTintColor={COLORS.primary}
-                                    />
-                                    <View style={styles.sliderLabels}>
-                                        <Text style={styles.sliderLabelText}>3m</Text>
-                                        <Text style={styles.sliderLabelText}>60m</Text>
-                                    </View>
+                            {creatingPlan ? (
+                                <View style={{ alignItems: 'center', padding: 20, width: '100%' }}>
+                                    <ActivityIndicator size="large" color={COLORS.primary} style={{ marginBottom: 20 }} />
+                                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.primary, marginBottom: 8 }}>
+                                        {isEditing ? 'Updating Chit Plan...' : 'Creating Chit Plan...'}
+                                    </Text>
+                                    <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+                                        Please wait while we process your request.
+                                    </Text>
                                 </View>
-
-                                {newPlan.amount ? (
-                                    <View style={styles.calculatedInfo}>
-                                        <Text style={styles.calculatedLabel}>Monthly Installment:</Text>
-                                        <Text style={styles.calculatedValue}>
-                                            ₹{Math.ceil(parseFloat(newPlan.amount) / newPlan.duration) || 0}
-                                        </Text>
+                            ) : (
+                                <>
+                                    <View style={styles.modalHeader}>
+                                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Plan' : 'Create New Plan'}</Text>
+                                        <TouchableOpacity onPress={() => setShowCreatePlanModal(false)}>
+                                            <Icon name="times" size={20} color={COLORS.secondary} />
+                                        </TouchableOpacity>
                                     </View>
-                                ) : null}
 
-                                <Text style={styles.label}>Description</Text>
-                                <TextInput
-                                    style={[styles.input, styles.textArea]}
-                                    placeholder="Plan benefits..."
-                                    multiline
-                                    numberOfLines={3}
-                                    value={newPlan.description}
-                                    onChangeText={(text) => setNewPlan({ ...newPlan, description: text })}
-                                />
+                                    <ScrollView style={styles.fullWidth} showsVerticalScrollIndicator={false}>
+                                        <Text style={styles.label}>Plan Name</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="e.g. Gold Saver"
+                                            value={newPlan.name}
+                                            onChangeText={(text) => setNewPlan({ ...newPlan, name: text })}
+                                        />
 
-                                <TouchableOpacity
-                                    style={[styles.saveButton, { marginTop: 10 }, (!isFormValid || creatingPlan) && styles.disabledButton]}
-                                    onPress={handleCreateOrUpdatePlan}
-                                    disabled={!isFormValid || creatingPlan}
-                                >
-                                    {creatingPlan ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>{isEditing ? 'Update Plan' : 'Create Plan'}</Text>}
-                                </TouchableOpacity>
-                            </ScrollView>
+                                        <Text style={styles.label}>Total Amount (₹)</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="5000"
+                                            keyboardType="numeric"
+                                            value={newPlan.amount}
+                                            onChangeText={(text) => setNewPlan({ ...newPlan, amount: text })}
+                                        />
+
+                                        <Text style={styles.label}>Duration: {newPlan.duration} Months</Text>
+                                        <View style={styles.sliderContainer}>
+                                            <Slider
+                                                style={{ width: '100%', height: 40 }}
+                                                minimumValue={3}
+                                                maximumValue={60}
+                                                step={1}
+                                                value={newPlan.duration}
+                                                onValueChange={(val) => setNewPlan({ ...newPlan, duration: val })}
+                                                minimumTrackTintColor={COLORS.primary}
+                                                maximumTrackTintColor="#d3d3d3"
+                                                thumbTintColor={COLORS.primary}
+                                            />
+                                            <View style={styles.sliderLabels}>
+                                                <Text style={styles.sliderLabelText}>3m</Text>
+                                                <Text style={styles.sliderLabelText}>60m</Text>
+                                            </View>
+                                        </View>
+
+                                        {newPlan.amount ? (
+                                            <View style={styles.calculatedInfo}>
+                                                <Text style={styles.calculatedLabel}>Monthly Installment:</Text>
+                                                <Text style={styles.calculatedValue}>
+                                                    ₹{Math.ceil(parseFloat(newPlan.amount) / newPlan.duration) || 0}
+                                                </Text>
+                                            </View>
+                                        ) : null}
+
+                                        <Text style={styles.label}>Description</Text>
+                                        <TextInput
+                                            style={[styles.input, styles.textArea]}
+                                            placeholder="Plan benefits..."
+                                            multiline
+                                            numberOfLines={3}
+                                            value={newPlan.description}
+                                            onChangeText={(text) => setNewPlan({ ...newPlan, description: text })}
+                                        />
+
+                                        <TouchableOpacity
+                                            style={[styles.saveButton, { marginTop: 10 }, !isFormValid && styles.disabledButton]}
+                                            onPress={handleCreateOrUpdatePlan}
+                                            disabled={!isFormValid}
+                                        >
+                                            <Text style={styles.saveButtonText}>{isEditing ? 'Update Plan' : 'Create Plan'}</Text>
+                                        </TouchableOpacity>
+                                    </ScrollView>
+                                </>
+                            )}
                         </View>
                     </View>
                 </Modal>
@@ -462,15 +488,7 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
             />
 
             {/* Processing Modal */}
-            <Modal transparent={true} visible={creatingPlan} animationType="fade">
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-                    <View style={{ backgroundColor: 'white', padding: 25, borderRadius: 15, alignItems: 'center', elevation: 5 }}>
-                        <ActivityIndicator size="large" color="#915200" />
-                        <Text style={{ marginTop: 15, fontWeight: 'bold', fontSize: 16, color: '#915200' }}>Processing...</Text>
-                        <Text style={{ marginTop: 5, fontSize: 12, color: '#666' }}>Creating/Updating Plan...</Text>
-                    </View>
-                </View>
-            </Modal>
+
             <LinearGradient
                 colors={['rgba(248, 250, 252, 0)', '#F8FAFC']}
                 style={styles.bottomFade}

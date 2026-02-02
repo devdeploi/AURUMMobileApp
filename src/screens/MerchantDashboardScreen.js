@@ -586,6 +586,33 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                 {/* Bottom Nav */}
                 <BottomNav activeTab={activeTab} onTabChange={setActiveTab} tabs={merchantTabs} />
 
+                {/* Renewal Modal */}
+                <Modal visible={showRenewalModal} animationType="slide" onRequestClose={() => setShowRenewalModal(false)}>
+                    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 10, marginTop: 40 }}>
+                            <TouchableOpacity onPress={() => setShowRenewalModal(false)} style={{ padding: 10 }}>
+                                <Icon name="times" size={24} color={COLORS.secondary} />
+                            </TouchableOpacity>
+                        </View>
+                        <SubscriptionExpired
+                            user={{ ...user, ...profileData }}
+                            onRenew={(updatedMerchant) => {
+                                setShowRenewalModal(false);
+                                if (updatedMerchant) {
+                                    setProfileData(prev => ({ ...prev, ...updatedMerchant }));
+                                    if (onUserUpdate) {
+                                        onUserUpdate({ ...user, ...updatedMerchant });
+                                    }
+                                }
+                                fetchProfile();
+                            }}
+                            existingPlanCount={plans.length}
+                            plans={plans}
+                            onRefreshPlans={fetchPlans}
+                        />
+                    </SafeAreaView>
+                </Modal>
+
                 {/* Logout Modal */}
                 <Modal visible={showLogoutModal} transparent animationType="fade">
                     <View style={styles.modalOverlay}>

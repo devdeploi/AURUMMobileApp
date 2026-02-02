@@ -40,7 +40,7 @@ const MerchantProfile = ({
     };
     console.log("User", user);
     console.log("Profile Data", profileData);
-    
+
 
     return (
         <View style={{ flex: 1 }}>
@@ -634,7 +634,7 @@ const MerchantProfile = ({
                                 <View style={styles.priceContainer}>
                                     {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
                                     <Text style={styles.priceValue}>
-                                        {billingCycle === 'monthly' ? '₹5000' : '₹50000'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'}</Text>
+                                        {billingCycle === 'monthly' ? '₹2,500' : '₹25,000'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'}</Text>
                                     </Text>
                                 </View>
                             </ScrollView>

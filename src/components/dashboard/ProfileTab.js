@@ -205,8 +205,9 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                     <Text style={styles.inputLabel}>Phone Number</Text>
                                 </View>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, styles.readOnlyInput]}
                                     value={phone}
+                                    editable={false}
                                     onChangeText={setPhone}
                                     placeholder="+1 (555) 123-4567"
                                     placeholderTextColor={COLORS.secondary + '80'}

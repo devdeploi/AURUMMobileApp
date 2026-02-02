@@ -75,16 +75,15 @@ function App() {
   React.useEffect(() => {
     let adInterval: any;
     if (user && !areAdsPaused) {
-      // Trigger ad every 5 minutes (300000 ms)
-      // Initial delay of 1 minute to avoid showing immediately on login
+      // Trigger ad every 15 minutes (900000 ms)
       const timeout = setTimeout(() => {
         setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
         setShowAd(true);
         adInterval = setInterval(() => {
           setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
           setShowAd(true);
-        }, 60000);
-      }, 60000); // 1 minute delay before first ad
+        }, 900000);
+      }, 900000);
 
       return () => {
         clearTimeout(timeout);

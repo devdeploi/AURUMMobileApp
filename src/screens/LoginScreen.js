@@ -252,9 +252,9 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 otp: otpString
             });
             console.log('Verify Merchant OTP Success:', data);
-            await FCMService.registerToken(data._id, 'merchant', data.token);
+            await FCMService.registerToken(data._id, data.role, data.token);
             FCMService.displayLocalNotification('OTP Verified', 'Merchant login successful.');
-            onLogin('merchant', data);
+            onLogin(data.role, data);
         } catch (err) {
             console.log('Verify Merchant OTP Error:', err.response?.data || err.message);
             console.log("error", err);

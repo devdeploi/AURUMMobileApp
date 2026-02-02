@@ -475,16 +475,56 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                 </View>
 
                 {/* Recent Collections */}
-                <View style={[styles.sectionCard, { marginBottom: 20 }]} >
+                <View style={[styles.sectionCard, { marginBottom: 20, minHeight: 280 }]} >
                     <Text style={styles.sectionTitle}>Recent Collections</Text>
-                    <View style={{ marginTop: 10 }}>
-                        {recentTransactions.map((item, index) => (
-                            <View key={index}>
-                                {renderRecentItem({ item })}
-                                {index < recentTransactions.length - 1 && <View style={styles.listDivider} />}
+
+                    {recentTransactions.length > 0 ? (
+                        <View style={{ marginTop: 10 }}>
+                            {recentTransactions.map((item, index) => (
+                                <View key={index}>
+                                    {renderRecentItem({ item })}
+                                    {index < recentTransactions.length - 1 && <View style={styles.listDivider} />}
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <View style={{ marginTop: 15, flex: 1, position: 'relative' }}>
+                            {/* Simulated Content for visual weight */}
+                            {[1, 2, 3].map((i) => (
+                                <View key={i} style={[styles.recentItem, { marginBottom: 15, opacity: 0.4 }]}>
+                                    <View style={[styles.avatarPlaceholder, { backgroundColor: '#E2E8F0' }]} />
+                                    <View style={{ flex: 1, marginHorizontal: 12 }}>
+                                        <View style={{ height: 14, width: '60%', backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 6 }} />
+                                        <View style={{ height: 10, width: '35%', backgroundColor: '#F1F5F9', borderRadius: 4 }} />
+                                    </View>
+                                    <View style={{ alignItems: 'flex-end' }}>
+                                        <View style={{ height: 14, width: 50, backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 6 }} />
+                                        <View style={{ height: 10, width: 70, backgroundColor: '#F1F5F9', borderRadius: 4 }} />
+                                    </View>
+                                </View>
+                            ))}
+
+                            {/* Empty Message Overlay */}
+                            <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                                <View style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 24,
+                                    borderRadius: 30,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 10,
+                                    elevation: 5,
+                                    alignItems: 'center'
+                                }}>
+                                    <Icon name="history" size={20} color={COLORS.secondary} style={{ marginBottom: 6 }} />
+                                    <Text style={{ color: COLORS.secondary, fontWeight: '600', fontSize: 13 }}>Data will load here if available</Text>
+                                </View>
                             </View>
-                        ))}
-                    </View>
+                        </View>
+                    )}
+
                     {!isPremium && (
                         <View style={[StyleSheet.absoluteFill, { zIndex: 10, borderRadius: 0, overflow: 'hidden' }]}>
                             {/* Blur backing */}
