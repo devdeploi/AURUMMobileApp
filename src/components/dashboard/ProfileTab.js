@@ -133,9 +133,12 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                                         style={styles.avatarImage}
                                     />
                                 ) : (
-                                    <Text style={styles.avatarText}>
-                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                                    </Text>
+                                    <View style={styles.avatarTextWrapper}>
+                                        <Text style={styles.avatarText}>
+                                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                        </Text>
+                                    </View>
+
                                 )}
                             </LinearGradient>
                             {!isEditing && (
@@ -434,11 +437,6 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
-    avatarText: {
-        fontSize: 26,
-        color: '#fff',
-        fontWeight: 'bold',
-    },
     avatarBadge: {
         position: 'absolute',
         bottom: 0,
@@ -465,6 +463,22 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.secondary,
     },
+    avatarTextWrapper: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 5,
+        bottom: 5,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarText: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#fff',
+        includeFontPadding: false,
+    },
+
     editAvatarButton: {
         flexDirection: 'row',
         alignItems: 'center',
