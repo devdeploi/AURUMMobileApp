@@ -189,7 +189,11 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 // OR we are reusing this function? 
                 // Let's separate it. This function is for Password Login button.
 
-                const { data } = await axios.post(`${APIURL}/merchants/login`, { email, password });
+                const { data } = await axios.post(`${APIURL}/merchants/login`, {
+                    email,
+                    password,
+                    platform: Platform.OS
+                });
                 console.log('Merchant Login Success:', data);
 
                 if (data.otpSent) {
@@ -249,7 +253,8 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
         try {
             const { data } = await axios.post(`${APIURL}/merchants/verify-login-otp`, {
                 email,
-                otp: otpString
+                otp: otpString,
+                platform: Platform.OS
             });
             console.log('Verify Merchant OTP Success:', data);
             await FCMService.registerToken(data._id, data.role, data.token);

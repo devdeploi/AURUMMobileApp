@@ -6,6 +6,8 @@ import { PieChart } from 'react-native-chart-kit';
 import LinearGradient from 'react-native-linear-gradient';
 import { BASE_URL } from '../constants/api';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import GoldTicker from './GoldTicker';
+import Calculator from './Calculator';
 
 const { width } = Dimensions.get('window');
 
@@ -133,10 +135,12 @@ const LockedOverlay = ({ title }) => {
 const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [goldRate, setGoldRate] = useState(0);
     console.log(user);
 
 
     const isPremium = user.plan === 'Premium';
+    const isBasic = user.plan === 'Basic' || !user.plan;
 
     // --- Helper Functions ---
     const formatCurrencyCompact = (value) => {
@@ -288,6 +292,8 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
                 showsVerticalScrollIndicator={false}
             >
+                <GoldTicker onRateUpdate={setGoldRate} />
+
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greeting}>Overview</Text>
@@ -295,6 +301,8 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                     </View>
                     <Image source={{ uri: user.profileImage ? `${BASE_URL}${user.profileImage}` : 'https://via.placeholder.com/100' }} style={styles.headerAvatar} />
                 </View>
+
+                {/* Live Gold Rates */}
 
                 {/* Monthly Collection Banner - BRAND COLOR */}
                 <View style={styles.glassBannerWrapper}>
@@ -336,7 +344,7 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                     </LinearGradient>
 
                     {/* Locked Overlay for Standard Users - Full Card */}
-                    {!isPremium && (
+                    {isBasic && (
                         <View style={[StyleSheet.absoluteFill, { zIndex: 10, borderRadius: 0, overflow: 'hidden' }]}>
                             {/* Blur backing */}
                             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.2)' }]} />
@@ -362,6 +370,8 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                         <Text style={styles.statValue}>{stats.activePlans}</Text>
                     </View>
                 </View>
+
+                <Calculator liveGoldRate={goldRate} />
 
                 {/* Donut Chart - Plan Distribution */}
                 <View style={styles.sectionCard}>
@@ -465,7 +475,7 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                     </View>
 
                     {/* Locked Overlay for Standard Users */}
-                    {!isPremium && (
+                    {isBasic && (
                         <View style={[StyleSheet.absoluteFill, { borderRadius: 24, overflow: 'hidden' }]}>
                             {/* Blur effect simulated with semi-transparent background */}
                             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.8)' }]} />
@@ -525,7 +535,7 @@ const MerchantOverview = ({ user, stats, plans = [], refreshing, onRefresh }) =>
                         </View>
                     )}
 
-                    {!isPremium && (
+                    {isBasic && (
                         <View style={[StyleSheet.absoluteFill, { zIndex: 10, borderRadius: 0, overflow: 'hidden' }]}>
                             {/* Blur backing */}
                             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.2)' }]} />

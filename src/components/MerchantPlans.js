@@ -29,7 +29,7 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
     const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingPlanId, setEditingPlanId] = useState(null);
-    const [newPlan, setNewPlan] = useState({ name: '', amount: '', duration: 11, description: '' });
+    const [newPlan, setNewPlan] = useState({ name: '', amount: '', duration: 11, description: '', returnType: 'Cash' });
     const [creatingPlan, setCreatingPlan] = useState(false);
 
     // View Details State
@@ -91,7 +91,9 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                 totalAmount: totalAmount,
                 monthlyAmount: monthlyAmount,
                 durationMonths: duration,
+                durationMonths: duration,
                 description: newPlan.description,
+                returnType: newPlan.returnType,
                 merchant: user._id || user.id
             };
 
@@ -139,7 +141,7 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
     };
 
     const resetForm = () => {
-        setNewPlan({ name: '', amount: '', duration: 11, description: '' });
+        setNewPlan({ name: '', amount: '', duration: 11, description: '', returnType: 'Cash' });
         setIsEditing(false);
         setEditingPlanId(null);
     };
@@ -148,8 +150,10 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
         setNewPlan({
             name: plan.planName,
             amount: plan.totalAmount.toString(),
+            amount: plan.totalAmount.toString(),
             duration: plan.durationMonths,
-            description: plan.description || ''
+            description: plan.description || '',
+            returnType: plan.returnType || 'Cash'
         });
         setIsEditing(true);
         setEditingPlanId(plan._id);
@@ -273,6 +277,19 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                                     <View style={styles.detailItem}>
                                         <Icon name="users" size={12} color={COLORS.secondary} style={styles.iconStyle} />
                                         <Text style={styles.detailText}>{plan.subscribers ? plan.subscribers.length : 0} Subscribers</Text>
+                                    </View>
+                                    <View style={[styles.detailItem, { marginLeft: 15 }]}>
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: 'bold',
+                                            color: plan.returnType === 'Gold' ? '#D69E2E' : '#38A169',
+                                            backgroundColor: plan.returnType === 'Gold' ? '#FEFCBF' : '#C6F6D5',
+                                            paddingHorizontal: 8,
+                                            paddingVertical: 2,
+                                            borderRadius: 4
+                                        }}>
+                                            {plan.returnType || 'Cash'}
+                                        </Text>
                                     </View>
                                 </View>
 
@@ -405,6 +422,32 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                                             </View>
                                         ) : null}
 
+                                        <Text style={styles.label}>Return Type</Text>
+                                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                                            {['Cash', 'Gold'].map((type) => (
+                                                <TouchableOpacity
+                                                    key={type}
+                                                    onPress={() => setNewPlan({ ...newPlan, returnType: type })}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: 12,
+                                                        borderRadius: 8,
+                                                        borderWidth: 1,
+                                                        borderColor: newPlan.returnType === type ? COLORS.primary : '#e9ecef',
+                                                        backgroundColor: newPlan.returnType === type ? COLORS.glass : '#f8f9fa',
+                                                        alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <Text style={{
+                                                        color: newPlan.returnType === type ? COLORS.primary : '#666',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {type}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+
                                         <Text style={styles.label}>Description</Text>
                                         <TextInput
                                             style={[styles.input, styles.textArea]}
@@ -461,6 +504,12 @@ const MerchantPlans = ({ user, loadingPlans, plans, onPlanCreated, onRefresh }) 
                                     <View style={styles.detailRow}>
                                         <Text style={styles.detailLabel}>Subscribers:</Text>
                                         <Text style={styles.detailValue}>{selectedPlan.subscribers?.length || 0}</Text>
+                                    </View>
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>Return Type:</Text>
+                                        <Text style={[styles.detailValue, { fontWeight: 'bold', color: selectedPlan.returnType === 'Gold' ? '#D69E2E' : '#38A169' }]}>
+                                            {selectedPlan.returnType || 'Cash'}
+                                        </Text>
                                     </View>
 
                                     <Text style={[styles.detailLabel, { marginTop: 15, marginBottom: 5 }]}>Description:</Text>

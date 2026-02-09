@@ -34,6 +34,7 @@ import MerchantUsers from '../components/MerchantUsers';
 import MerchantProfile from '../components/MerchantProfile';
 import SubscriptionExpired from '../components/SubscriptionExpired';
 import CustomAlert from '../components/CustomAlert';
+import AdManager from '../components/AdManager';
 
 const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resumeAds }) => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -45,6 +46,7 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
         { id: 'overview', icon: 'chart-pie', label: 'Overview' },
         { id: 'plans', icon: 'clipboard-list', label: 'My Plans' },
         { id: 'subscribers', icon: 'users', label: 'Users' },
+        ...(user.plan === 'Premium' ? [{ id: 'ads', icon: 'ad', label: 'Ads' }] : []),
         { id: 'profile', icon: 'user-cog', label: 'Profile' },
     ];
 
@@ -475,6 +477,41 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
     }, [fetchPlans, fetchProfile]);
 
     const renderContent = () => {
+        // Strict Expiry Logic
+        if (profileData.subscriptionExpiryDate) {
+            const expiry = new Date(profileData.subscriptionExpiryDate);
+            const today = new Date();
+            const diffTime = expiry.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const isExpired = profileData.subscriptionStatus === 'expired';
+
+            // Grace period is 1 day. If diffDays < -1, grace is over.
+            const isGraceOver = diffDays < -1; // e.g. -2 means 2 days past expiry
+
+            if (isExpired && isGraceOver) {
+                return (
+                    <View style={{ flex: 1, backgroundColor: '#f8f9fa', padding: 20 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 20 }}>
+                            <TouchableOpacity onPress={() => setShowLogoutModal(true)} style={{ padding: 10, backgroundColor: '#fee2e2', borderRadius: 8 }}>
+                                <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Sign Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <SubscriptionExpired
+                            user={{ ...user, ...profileData }}
+                            existingPlanCount={plans.length}
+                            plans={plans}
+                            onRenew={(updatedMerchant) => {
+                                if (updatedMerchant) {
+                                    setProfileData(prev => ({ ...prev, ...updatedMerchant }));
+                                    fetchPlans(); // Refresh plans status
+                                }
+                            }}
+                        />
+                    </View>
+                );
+            }
+        }
+
         switch (activeTab) {
             case 'overview':
                 return (
@@ -554,6 +591,8 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                         resumeAds={resumeAds}
                     />
                 );
+            case 'ads':
+                return <AdManager user={user} />;
             default:
                 return null;
         }
@@ -573,9 +612,7 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
                         <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
                         <Text style={styles.appTitle}>A U R U M</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                        <GoldTicker />
-                    </View>
+
                 </View>
 
                 {/* Content */}
@@ -652,10 +689,10 @@ const styles = StyleSheet.create({
     header: {
         marginTop: 10,
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
-        // paddingVertical: 2,
+        paddingVertical: 13,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(240, 240, 240, 0.5)',
         backgroundColor: '#ebdc87',

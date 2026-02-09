@@ -17,9 +17,10 @@ import axios from 'axios';
 import { COLORS } from '../styles/theme';
 import { APIURL } from '../constants/api';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-
 import CustomAlert from '../components/CustomAlert';
 import FCMService from '../services/FCMService';
+import TermsAndConditions from '../components/TermsAndConditions';
+import UserPolicy from '../components/UserPolicy';
 
 const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
     const [firstName, setFirstName] = useState('');
@@ -36,6 +37,11 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
     const [step, setStep] = useState(1);
     const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    // Terms & Policy State
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [showTerms, setShowTerms] = useState(false);
+    const [showPolicy, setShowPolicy] = useState(false);
 
     // Custom Alert State
     const [alertConfig, setAlertConfig] = useState({
@@ -57,6 +63,11 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
         }
         if (password !== confirmPassword) {
             setAlertConfig({ visible: true, title: 'Error', message: 'Passwords do not match', type: 'error' });
+            return;
+        }
+
+        if (!termsAccepted) {
+            setAlertConfig({ visible: true, title: 'Required', message: 'Please accept the Terms and Conditions & User Policy to proceed.', type: 'warning' });
             return;
         }
 
@@ -243,10 +254,32 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
                                     placeholder="Address"
                                     placeholderTextColor={COLORS.textSecondary}
                                     value={address}
-                                    onChangeText={setAddress}
-                                    multiline={true}
                                     numberOfLines={3}
                                 />
+
+                                {/* Terms & Conditions Checkbox */}
+                                <View style={styles.termsContainer}>
+                                    <TouchableOpacity
+                                        style={styles.checkbox}
+                                        onPress={() => setTermsAccepted(!termsAccepted)}
+                                    >
+                                        <Icon
+                                            name={termsAccepted ? 'check-square' : 'square'}
+                                            size={20}
+                                            color={termsAccepted ? COLORS.primary : COLORS.textSecondary}
+                                        />
+                                    </TouchableOpacity>
+                                    <View style={styles.termsTextContainer}>
+                                        <Text style={styles.termsText}>I accept the </Text>
+                                        <TouchableOpacity onPress={() => setShowTerms(true)}>
+                                            <Text style={styles.termsLink}>Terms & Conditions</Text>
+                                        </TouchableOpacity>
+                                        <Text style={styles.termsText}> and </Text>
+                                        <TouchableOpacity onPress={() => setShowPolicy(true)}>
+                                            <Text style={styles.termsLink}>User Policy</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
 
                                 <TouchableOpacity style={styles.button} onPress={handleSendOtp} disabled={isLoading}>
                                     {isLoading ? (
@@ -297,6 +330,10 @@ const RegisterScreen = ({ onRegister, onSwitchToLogin }) => {
                 buttons={alertConfig.buttons}
                 onClose={hideAlert}
             />
+
+            {/* Terms & Policy Modals */}
+            <TermsAndConditions visible={showTerms} onClose={() => setShowTerms(false)} />
+            <UserPolicy visible={showPolicy} onClose={() => setShowPolicy(false)} />
         </LinearGradient>
     );
 };
@@ -454,6 +491,30 @@ const styles = StyleSheet.create({
     textArea: {
         height: 100,
         textAlignVertical: 'top',
+    },
+    termsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 5
+    },
+    checkbox: {
+        marginRight: 10
+    },
+    termsTextContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        flex: 1
+    },
+    termsText: {
+        color: COLORS.textSecondary,
+        fontSize: 12
+    },
+    termsLink: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        fontSize: 12,
+        textDecorationLine: 'underline'
     }
 });
 

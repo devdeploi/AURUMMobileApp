@@ -283,7 +283,7 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                         <Image source={require('../assets/AURUM.png')} style={{ width: 30, height: 30, marginRight: 10, resizeMode: 'contain' }} />
                         <Text style={styles.appTitle}>A U R U M</Text>
                     </View>
-                    <GoldTicker onRateUpdate={setGoldRate} />
+
                 </View>
 
                 <View style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -331,10 +331,10 @@ const styles = StyleSheet.create({
     header: {
         marginTop: 10,
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
-        // paddingVertical: 2,
+        paddingVertical: 13,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(240, 240, 240, 0.5)',
         backgroundColor: '#ebdc87',

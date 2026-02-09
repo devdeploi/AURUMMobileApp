@@ -394,7 +394,7 @@ const MerchantProfile = ({
                                     <Text style={styles.documentTitle}>Shop Images</Text>
                                     <Text style={styles.documentCount}>({profileData.shopImages?.length || 0})</Text>
                                 </View>
-                                {isEditingProfile && profileData.plan === 'Premium' && (
+                                {isEditingProfile && profileData.plan !== 'Basic' && (
                                     <TouchableOpacity
                                         onPress={() => handleImageUpload('shopImage')}
                                         disabled={uploadingDoc}
@@ -413,7 +413,7 @@ const MerchantProfile = ({
                                 )}
                             </View>
 
-                            {profileData.plan !== 'Premium' ? (
+                            {profileData.plan === 'Basic' ? (
                                 <TouchableOpacity
                                     style={[styles.noImagesContainer, {
                                         backgroundColor: 'rgba(145, 82, 0, 0.03)',
@@ -575,41 +575,39 @@ const MerchantProfile = ({
 
                                     {/* Premium Plan Column */}
                                     <View>
-                                        {/* <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.warning, marginBottom: 12, textTransform: 'uppercase' }}>Premium Plan (Upgrade)</Text> */}
+                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
+                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
+                                                <Icon name="mobile-alt" size={10} color="#fff" />
+                                            </View>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>iOS App Access</Text>
+                                        </View>
 
                                         <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
                                             <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
                                                 <Icon name="check" size={10} color="#fff" />
                                             </View>
-                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Up to 6 Chits</Text>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>9 Chit Plan</Text>
                                         </View>
 
                                         <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
                                             <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
-                                                <Icon name="chart-pie" size={10} color="#fff" />
+                                                <Icon name="ad" size={10} color="#fff" />
                                             </View>
-                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Advanced Dashboard</Text>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Custom Ads</Text>
                                         </View>
 
                                         <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
                                             <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
-                                                <Icon name="images" size={10} color="#fff" />
+                                                <Icon name="filter" size={10} color="#fff" />
                                             </View>
-                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Unlimited Shop Images</Text>
-                                        </View>
-
-                                        <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
-                                            <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
-                                                <Icon name="ban" size={10} color="#fff" />
-                                            </View>
-                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>No Screen Blocking Ads</Text>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Payment Filter (Date)</Text>
                                         </View>
 
                                         <View style={[styles.featureItem, { backgroundColor: '#FFFBEB' }]}>
                                             <View style={[styles.featureIconContainer, { backgroundColor: COLORS.warning }]}>
                                                 <Icon name="headset" size={10} color="#fff" />
                                             </View>
-                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>24/7 Support</Text>
+                                            <Text style={[styles.featureText, { color: '#92400E', fontWeight: '700' }]}>Priority Support</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -627,14 +625,14 @@ const MerchantProfile = ({
                                         onPress={() => setBillingCycle('yearly')}
                                     >
                                         <Text style={[styles.toggleText, billingCycle === 'yearly' && styles.toggleTextActive]}>
-                                            Yearly <Text style={{ fontSize: 10 }}>(Save 17%)</Text>
+                                            Yearly <Text style={{ fontSize: 10 }}>(Save ₹7,000)</Text>
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
                                 <View style={styles.priceContainer}>
                                     {/* <Text style={styles.priceLabel}>Plan Price</Text> */}
                                     <Text style={styles.priceValue}>
-                                        {billingCycle === 'monthly' ? '₹2,500' : '₹25,000'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'}</Text>
+                                        {billingCycle === 'monthly' ? '₹4,130' : '₹41,300'} <Text style={styles.pricePeriod}>/ {billingCycle === 'monthly' ? 'Month' : 'Year'} (+ 18% GST)</Text>
                                     </Text>
                                 </View>
                             </ScrollView>

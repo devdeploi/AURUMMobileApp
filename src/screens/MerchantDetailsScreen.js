@@ -300,9 +300,11 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                         <View key={plan._id} style={styles.planCard}>
                             <View style={styles.planHeader}>
                                 <Text style={styles.planName}>{plan.planName}</Text>
-                                {/* <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>Popular</Text>
-                                </View> */}
+                                <View style={[styles.badge, { backgroundColor: plan.returnType === 'Gold' ? '#FFF9C4' : '#C6F6D5' }]}>
+                                    <Text style={[styles.badgeText, { color: plan.returnType === 'Gold' ? '#FBC02D' : '#38A169' }]}>
+                                        {plan.returnType || 'Cash'}
+                                    </Text>
+                                </View>
                             </View>
 
                             <Text style={styles.amountLabel}>Total Amount</Text>
@@ -523,6 +525,13 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                                     <View style={styles.modalDetailRow}>
                                         <Text style={styles.modalDetailLabel}>Duration</Text>
                                         <Text style={styles.modalDetailValue}>{selectedPlan.durationMonths} Months</Text>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.modalDetailRow}>
+                                        <Text style={styles.modalDetailLabel}>Return Type</Text>
+                                        <Text style={[styles.modalDetailValue, { color: selectedPlan.returnType === 'Gold' ? '#FBC02D' : '#38A169' }]}>
+                                            {selectedPlan.returnType || 'Cash'}
+                                        </Text>
                                     </View>
                                     <View style={styles.divider} />
                                     {selectedPlan.description && (

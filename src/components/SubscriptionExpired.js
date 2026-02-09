@@ -35,50 +35,32 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const isExpired = diffDays <= 0;
 
-    // Downgrade Management (Simplified for Mobile: Just warn/block Standard if count > 3)
-    const standardLimit = 3;
-    const isStandardRestricted = existingPlanCount > standardLimit;
+    // Downgrade Management
+    const basicLimit = 3;
+    const standardLimit = 6;
 
-    const handleDeletePlan = async (planId) => {
-        setAlertConfig({
-            visible: true,
-            title: "Delete Plan",
-            message: "Are you sure? This cannot be undone.",
-            type: 'warning',
-            buttons: [
-                { text: "Cancel", style: "cancel", onPress: () => { } },
-                {
-                    text: "Delete",
-                    onPress: async () => {
-                        setDeletingPlanId(planId);
-                        try {
-                            const token = user.token;
-                            await axios.delete(`${APIURL}/chit-plans/${planId}`, {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-                            // Refresh plans
-                            if (onRefreshPlans) await onRefreshPlans();
-                            setAlertConfig({ visible: true, title: "Success", message: "Plan deleted", type: 'success' });
-                        } catch (error) {
-                            setAlertConfig({ visible: true, title: "Error", message: "Failed to delete plan", type: 'error' });
-                            console.error(error);
-                        } finally {
-                            setDeletingPlanId(null);
-                        }
-                    }
-                }
-            ]
-        });
-    };
+    const isBasicRestricted = existingPlanCount > basicLimit;
+    const isStandardRestricted = existingPlanCount > standardLimit;
 
     const handleRenew = async () => {
         if (!selectedPlan) return;
 
-        if (selectedPlan === 'Standard' && isStandardRestricted) {
+        let restricted = false;
+        let limit = 0;
+
+        if (selectedPlan === 'Basic' && isBasicRestricted) {
+            restricted = true;
+            limit = basicLimit;
+        } else if (selectedPlan === 'Standard' && isStandardRestricted) {
+            restricted = true;
+            limit = standardLimit;
+        }
+
+        if (restricted) {
             setAlertConfig({
                 visible: true,
                 title: "Limit Exceeded",
-                message: `Please delete ${existingPlanCount - standardLimit} plan(s) below to proceed with Standard Plan.`,
+                message: `Please delete ${existingPlanCount - limit} plan(s) below to proceed with ${selectedPlan} Plan.`,
                 type: 'warning'
             });
             return;
@@ -164,14 +146,18 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
 
     // Helper to get price display
     const getPrice = (plan) => {
-        const basePrice = plan === 'Standard' ? 1500 : 5000;
+        let basePrice = 0;
+        if (plan === 'Basic') basePrice = 1770; // 1500 + 18%
+        else if (plan === 'Standard') basePrice = 2950; // 2500 + 18%
+        else if (plan === 'Premium') basePrice = 4130; // 3500 + 18%
+
         if (billingCycle === 'yearly') {
-            return `₹${basePrice * 10}`;
+            return `₹${(basePrice * 10).toLocaleString()}`;
         }
-        return `₹${basePrice}`;
+        return `₹${basePrice.toLocaleString()}`;
     };
 
-    const getPeriod = () => billingCycle === 'yearly' ? '/yr' : '/mo';
+    const getPeriod = () => billingCycle === 'yearly' ? '/yr (+ 18% GST)' : '/mo (+ 18% GST)';
 
     return (
         <View style={{ flex: 1 }}>
@@ -208,12 +194,37 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                         </Text>
                     </TouchableOpacity>
                 </View>
-
                 <Text style={styles.usageText}>
                     You have used <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{existingPlanCount}</Text> of your chit slots.
                 </Text>
 
                 <View style={styles.plansContainer}>
+
+                    {/* Basic Plan */}
+                    <TouchableOpacity
+                        style={[
+                            styles.planCard,
+                            selectedPlan === 'Basic' && styles.selectedPlanCard
+                        ]}
+                        onPress={() => setSelectedPlan('Basic')}
+                    >
+                        <View style={styles.planHeader}>
+                            <Text style={styles.planName}>Basic</Text>
+                            <Text style={styles.planPrice}>{getPrice('Basic')}<Text style={styles.planPeriod}>{getPeriod()}</Text></Text>
+                        </View>
+                        <View style={styles.featureList}>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>3 Chits Only</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Normal Dashboard</Text></View>
+                            <View style={styles.featureItem}><Icon name="times" size={12} color={COLORS.danger} /><Text style={styles.featureText}>No Shop Images</Text></View>
+                        </View>
+                        {isBasicRestricted && (
+                            <View style={styles.warningContainer}>
+                                <Icon name="exclamation-triangle" size={12} color={COLORS.warning} />
+                                <Text style={styles.warningText}>Limit Exceeded: Delete {existingPlanCount - basicLimit} plans</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
                     {/* Standard Plan */}
                     <TouchableOpacity
                         style={[
@@ -223,15 +234,14 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                         onPress={() => setSelectedPlan('Standard')}
                     >
                         <View style={styles.planHeader}>
+
                             <Text style={styles.planName}>Standard</Text>
                             <Text style={styles.planPrice}>{getPrice('Standard')}<Text style={styles.planPeriod}>{getPeriod()}</Text></Text>
                         </View>
                         <View style={styles.featureList}>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>3 Chits Only</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Normal Dashboard</Text></View>
-                            <View style={styles.featureItem}><Icon name="times" size={12} color={COLORS.danger} /><Text style={styles.featureText}>No Shop Image Uploads</Text></View>
-                            <View style={styles.featureItem}><Icon name="exclamation-triangle" size={12} color={COLORS.warning} /><Text style={styles.featureText}>Screen Blocking Ads</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Email Support</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Up to 6 Chits</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Advanced Dashboard</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Unlimited Shop Images</Text></View>
                         </View>
                         {isStandardRestricted && (
                             <View style={styles.warningContainer}>
@@ -240,32 +250,6 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                             </View>
                         )}
                     </TouchableOpacity>
-
-                    {/* Plan Deletion List (Only if Standard is selected and restricted) */}
-                    {selectedPlan === 'Standard' && isStandardRestricted && plans && (
-                        <View style={styles.deletionList}>
-                            <Text style={styles.deletionTitle}>Manage Active Plans:</Text>
-                            {plans.map(plan => (
-                                <View key={plan._id || plan.id} style={styles.planItem}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.planItemName}>{plan.planName}</Text>
-                                        <Text style={styles.planItemDetails}>₹{plan.totalAmount} • {plan.durationMonths} Months</Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.deleteButton}
-                                        onPress={() => handleDeletePlan(plan._id || plan.id)}
-                                        disabled={deletingPlanId === (plan._id || plan.id)}
-                                    >
-                                        {deletingPlanId === (plan._id || plan.id) ? (
-                                            <ActivityIndicator size="small" color={COLORS.danger} />
-                                        ) : (
-                                            <Icon name="trash" size={14} color={COLORS.danger} />
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </View>
-                    )}
 
                     {/* Premium Plan */}
                     <TouchableOpacity
@@ -283,11 +267,10 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
                             <Text style={[styles.planPrice, { color: COLORS.warning }]}>{getPrice('Premium')}<Text style={styles.planPeriod}>{getPeriod()}</Text></Text>
                         </View>
                         <View style={styles.featureList}>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Up to 6 Chits</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Advanced Dashboard</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Unlimited Shop Images</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>No Screen Blocking Ads</Text></View>
-                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>24/7 Support</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>iOS App Access</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>9 Chit Plan</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Custom Ads</Text></View>
+                            <View style={styles.featureItem}><Icon name="check" size={12} color={COLORS.success} /><Text style={styles.featureText}>Priority Support</Text></View>
                         </View>
                     </TouchableOpacity>
                 </View>

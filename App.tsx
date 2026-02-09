@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import axios from 'axios';
+import { APIURL } from './src/constants/api';
 
-// Screens
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -15,6 +16,7 @@ import MerchantDetailsScreen from './src/screens/MerchantDetailsScreen';
 import IntroScreen from './src/screens/IntroScreen';
 import { COLORS } from './src/styles/theme';
 import FCMService from './src/services/FCMService';
+import AdDisplay from './src/components/AdDisplay';
 import SchoolHubAd from './src/components/SchoolHubAd';
 import QuickproAd from './src/components/QuickproAd';
 
@@ -34,15 +36,17 @@ interface UserData {
 }
 
 function App() {
-  /* ... inside App component ... */
   const [currentScreen, setCurrentScreen] = useState<string>('INTRO');
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
   const [dashboardStartTab, setDashboardStartTab] = useState<string>('dashboard');
-  const [showAd, setShowAd] = useState(false);
-  const [selectedAd, setSelectedAd] = useState<'quickpro' | 'schoolhub'>('quickpro');
-  const [areAdsPaused, setAreAdsPaused] = useState(false);
+  const [ads, setAds] = useState([]);
+  const [areAdsPaused, setAreAdsPaused] = useState(false); // Restore paused state logic
+
+  // Merchant-specific Brand Ad logic
+  const [showBrandAd, setShowBrandAd] = useState(false);
+  const [selectedBrandAd, setSelectedBrandAd] = useState<'quickpro' | 'schoolhub'>('quickpro');
 
   // Check for stored session on mount
   React.useEffect(() => {
@@ -62,37 +66,63 @@ function App() {
     checkSession();
   }, []);
 
-  const pauseAds = () => {
-    setAreAdsPaused(true);
-    setShowAd(false); // Hide ongoing ad if any
-  };
+  // Fetch Ads for Global Display (Users)
+  React.useEffect(() => {
+    if (user?.role === 'user') {
+      const fetchAds = async () => {
+        try {
+          // Pass token if needed, or if public endpoint
+          const config = user.token ? { headers: { Authorization: `Bearer ${user.token}` } } : {};
+          const { data } = await axios.get(`${APIURL}/ads/feed`, config);
+          setAds(data);
+        } catch (error) {
+          console.log("Failed to fetch global ads", error);
+        }
+      };
+      fetchAds();
+    }
+  }, [user]);
 
-  const resumeAds = () => {
-    setAreAdsPaused(false);
-  };
+  // Merchant Brand Ad Interval Logic
+  // Merchant Brand Ad Interval Logic
+  const hasInitialAdRun = React.useRef(false);
+  console.log(user);
+  
 
-  // Ad Logic
   React.useEffect(() => {
     let adInterval: any;
-    if (user && !areAdsPaused) {
-      // Trigger ad every 15 minutes (900000 ms)
-      const timeout = setTimeout(() => {
-        setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
-        setShowAd(true);
-        adInterval = setInterval(() => {
-          setSelectedAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
-          setShowAd(true);
-        }, 900000);
-      }, 900000);
+    let initialTimeout: any;
 
-      return () => {
-        clearTimeout(timeout);
-        clearInterval(adInterval);
-      };
+    if (user?.role === 'merchant' && !areAdsPaused) {
+      // Use selected frequency or fallback to 15 minutes
+      const frequencyMinutes = (user as any)?.adFrequency || 15;
+      const frequencyMs = frequencyMinutes * 60 * 1000;
+
+      // Trigger brand ad based on frequency
+      adInterval = setInterval(() => {
+        setSelectedBrandAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
+        setShowBrandAd(true);
+      }, frequencyMs);
+
+      // Only trigger initial ad once per session
+      if (!hasInitialAdRun.current) {
+        initialTimeout = setTimeout(() => {
+          setSelectedBrandAd(Math.random() > 0.5 ? 'quickpro' : 'schoolhub');
+          setShowBrandAd(true);
+          hasInitialAdRun.current = true;
+        }, 5000);
+      }
     }
-  }, [user, areAdsPaused]);
 
-  // ... handlers ...
+    return () => {
+      if (adInterval) clearInterval(adInterval);
+      if (initialTimeout) clearTimeout(initialTimeout);
+    };
+  }, [user?.role, areAdsPaused, (user as any)?.adFrequency]);
+
+  // Pause Controls for Screens
+  const pauseAds = () => setAreAdsPaused(true);
+  const resumeAds = () => setAreAdsPaused(false);
 
   React.useEffect(() => {
     const initNotifications = async () => {
@@ -139,9 +169,6 @@ function App() {
   };
 
   const handleRegisterSubmit = async (userData: UserData) => {
-    // Auto login after register? Or go to Login? 
-    // User prompt: "before user login he needs to register". Implicitly go to login after or auto-login.
-    // Let's auto-login for better UX.
     setUser(userData);
     try {
       await AsyncStorage.setItem('user_session', JSON.stringify(userData));
@@ -251,20 +278,36 @@ function App() {
           translucent
         />
         {renderScreen()}
-        {selectedAd === 'schoolhub' && (
-          <SchoolHubAd
-            visible={showAd}
-            onClose={() => setShowAd(false)}
-            variant={user?.role === 'merchant' && user?.plan === 'Premium' ? 'banner' : 'full'}
+
+        {/* Global Ad Display Overlay (User Role) */}
+        {user?.role === 'user' && ads.length > 0 && !isLoginOrRegister && (
+          <AdDisplay
+            ads={ads}
+            visible={true}
+            paused={areAdsPaused}
           />
         )}
-        {selectedAd === 'quickpro' && (
-          <QuickproAd
-            visible={showAd}
-            onClose={() => setShowAd(false)}
-            variant={user?.role === 'merchant' && user?.plan === 'Premium' ? 'banner' : 'full'}
-          />
+
+        {/* Merchant Brand Ads (Based on Plan) */}
+        {user?.role === 'merchant' && !isLoginOrRegister && (
+          <>
+            {selectedBrandAd === 'schoolhub' && (
+              <SchoolHubAd
+                visible={showBrandAd}
+                onClose={() => setShowBrandAd(false)}
+                variant={user?.plan !== 'Basic' ? 'banner' : 'full'}
+              />
+            )}
+            {selectedBrandAd === 'quickpro' && (
+              <QuickproAd
+                visible={showBrandAd}
+                onClose={() => setShowBrandAd(false)}
+                variant={user?.plan !== 'Basic' ? 'banner' : 'full'}
+              />
+            )}
+          </>
         )}
+
         <Toast />
       </View>
     </SafeAreaProvider>

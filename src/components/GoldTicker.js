@@ -1,195 +1,243 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { FONTS, COLORS } from '../styles/theme';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const { width } = Dimensions.get('window');
 
 const GoldTicker = ({ onRateUpdate }) => {
-    const [goldRate, setGoldRate] = useState({ price: 0, loading: true });
-    const shimmerValue = useRef(new Animated.Value(0)).current;
+    // Generate random placeholder prices for initial display
+    const generateRandomPrice = (base) => {
+        const variation = Math.random() * 200 - 100; // Random variation between -100 and +100
+        return (base + variation).toFixed(2);
+    };
+
+    const [goldRates, setGoldRates] = useState({
+        buy24: generateRandomPrice(15600),
+        buy22: generateRandomPrice(14300),
+        buy18: generateRandomPrice(11700),
+        loading: true
+    });
 
     useEffect(() => {
-        const fetchGoldPrice = async () => {
-            try {
-                const response = await fetch('https://data-asg.goldprice.org/dbXRates/INR');
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-                if (data.items && data.items.length > 0) {
-                    const pricePerOunce = data.items[0].xauPrice;
-                    const marketPrice = pricePerOunce / 31.1035;
-                    const buyPrice = marketPrice * 1.03;
-                    const finalPrice = buyPrice.toFixed(2);
+        let isMounted = true;
 
-                    setGoldRate({
-                        price: finalPrice,
-                        loading: false
-                    });
-
-                    if (onRateUpdate) {
-                        onRateUpdate(parseFloat(finalPrice));
-                    }
+        // Fallback API Strategy
+        const APIS = [
+            {
+                name: 'GoldPrice.org',
+                url: 'https://data-asg.goldprice.org/dbXRates/INR',
+                parse: (data) => {
+                    if (!data.items || data.items.length === 0) throw new Error('Invalid data format');
+                    return data.items[0].xauPrice;
                 }
-            } catch (error) {
-                console.error("Failed to fetch gold price", error);
-                setGoldRate(prev => ({ ...prev, loading: false }));
+            },
+            {
+                name: 'CoinGecko (PAXG)',
+                url: 'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=inr',
+                parse: (data) => {
+                    if (!data['pax-gold'] || !data['pax-gold'].inr) throw new Error('Invalid data format');
+                    return data['pax-gold'].inr;
+                }
+            }
+        ];
+
+        const fetchGoldPrice = async () => {
+            let success = false;
+
+            for (const api of APIS) {
+                if (success) break;
+
+                try {
+                    const response = await fetch(api.url);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+
+                    if (isMounted) {
+                        const pricePerOunce = api.parse(data);
+                        const pricePerGram24K = pricePerOunce / 31.1035;
+
+                        // India Market Adjustments (2026)
+                        // Import Duty (6%) + GST (3%) + Retail Premium/Making/Bank Charges (~2%) = ~11% Markup
+                        // Live Spot (~14k) -> Retail (~15.6k)
+                        const marketMarkup = 1.11;
+
+                        const buyPrice24 = pricePerGram24K * marketMarkup;
+                        const buyPrice22 = buyPrice24 * (22 / 24);
+                        const buyPrice18 = buyPrice24 * (18 / 24);
+
+                        const rate24 = buyPrice24.toFixed(2);
+
+                        setGoldRates({
+                            buy24: rate24,
+                            buy22: buyPrice22.toFixed(2),
+                            buy18: buyPrice18.toFixed(2),
+                            loading: false
+                        });
+
+                        // Notify parent if callback provided
+                        if (onRateUpdate) {
+                            onRateUpdate(rate24);
+                        }
+                        success = true;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch gold price from ${api.name}`, error);
+                }
+            }
+
+            if (!success && isMounted) {
+                console.error("All gold price APIs failed");
+                setGoldRates(prev => ({ ...prev, loading: false }));
             }
         };
 
         fetchGoldPrice();
         const interval = setInterval(fetchGoldPrice, 60000);
 
-        // Shimmer Animation
-        Animated.loop(
-            Animated.timing(shimmerValue, {
-                toValue: 1,
-                duration: 2500,
-                easing: Easing.inOut(Easing.ease),
-                useNativeDriver: true,
-            })
-        ).start();
-
-        return () => clearInterval(interval);
-    }, [shimmerValue, onRateUpdate]);
-
-    const translateX = shimmerValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-width, width],
-    });
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     return (
-        <View style={styles.tickerContainer}>
-            <View style={styles.goldPill}>
-                {/* Shimmer Effect */}
-                <View style={styles.shimmerContainer}>
-                    <Animated.View
-                        style={[
-                            styles.shimmer,
-                            {
-                                transform: [{ translateX }, { skewX: '-20deg' }]
-                            }
-                        ]}
-                    />
+        <LinearGradient
+            colors={['#eadb84ff', '#ebdc87']}
+            style={styles.cardContainer}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+        >
+            <View style={styles.cardHeader}>
+                <View style={styles.liveTagContainer}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>LIVE MARKET</Text>
                 </View>
-
-                {/* Content */}
-                <View style={styles.contentRow}>
+                <View style={styles.headerTitleRow}>
                     <View style={styles.iconCircle}>
-                        <Icon name="coins" size={14} color="#B7791F" />
+                        <Icon name="coins" size={12} color="#B7791F" />
                     </View>
-
-                    <View style={styles.infoContainer}>
-                        <Text style={styles.label}>GOLD RATE (24K)</Text>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.currency}>₹</Text>
-                            <Text style={styles.price}>
-                                {goldRate.loading ? '---.--' : goldRate.price}
-                            </Text>
-                            <Text style={styles.unit}>/gm</Text>
-                        </View>
-                    </View>
-
-
+                    <Text style={styles.headerTitle}>Today's Gold Rates</Text>
                 </View>
             </View>
-        </View>
+
+            <View style={styles.ratesRow}>
+                {/* 24K */}
+                <View style={[styles.rateBox, styles.borderRight]}>
+                    <Text style={styles.karatLabel}>24K (99.9%)</Text>
+                    <Text style={styles.priceText}>₹{goldRates.buy24 || '0.00'}</Text>
+                    <Text style={styles.unitLabel}>/gm</Text>
+                </View>
+
+                {/* 22K */}
+                <View style={[styles.rateBox, styles.borderRight]}>
+                    <Text style={styles.karatLabel}>22K (91.6%)</Text>
+                    <Text style={styles.priceText}>₹{goldRates.buy22 || '0.00'}</Text>
+                    <Text style={styles.unitLabel}>/gm</Text>
+                </View>
+
+                {/* 18K */}
+                <View style={styles.rateBox}>
+                    <Text style={styles.karatLabel}>18K (75%)</Text>
+                    <Text style={styles.priceText}>₹{goldRates.buy18 || '0.00'}</Text>
+                    <Text style={styles.unitLabel}>/gm</Text>
+                </View>
+            </View>
+        </LinearGradient>
     );
 };
 
 const styles = StyleSheet.create({
-    tickerContainer: {
-        alignItems: 'center',
-        marginVertical: 10,
-    },
-    goldPill: {
-        backgroundColor: '#fff',
-        borderRadius: 40,
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // Modern blurred shadow look
-        shadowColor: '#B7791F',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 6,
+    cardContainer: {
+        borderRadius: 20,
+        // padding: 15,
+        marginBottom: 20,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
         borderWidth: 1,
-        borderColor: 'rgba(183, 121, 31, 0.2)', // Subtle gold border
-        overflow: 'hidden',
-        minWidth: '70%'
+        borderColor: 'rgba(183, 121, 31, 0.15)'
     },
-    shimmerContainer: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 1,
-    },
-    shimmer: {
-        width: '40%',
-        height: '100%',
-        backgroundColor: 'rgba(255, 215, 0, 0.15)', // Light gold shimmer
-        opacity: 0.8,
-    },
-    contentRow: {
+    cardHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        zIndex: 2,
+        marginBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+        padding: 10
+    },
+    headerTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center'
     },
     iconCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: '#FFF8E1',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
-        borderWidth: 1,
-        borderColor: '#FFE082'
+        marginRight: 8
     },
-    infoContainer: {
-        justifyContent: 'center',
+    headerTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.dark
     },
-    label: {
+    liveTagContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10
+    },
+    liveDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: COLORS.danger,
+        marginRight: 6
+    },
+    liveText: {
         fontSize: 10,
-        color: '#8D6E63',
-        fontWeight: '700',
-        letterSpacing: 0.5,
+        fontWeight: 'bold',
+        color: COLORS.danger
+    },
+    ratesRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start'
+    },
+    rateBox: {
+        flex: 1,
+        alignItems: 'center',
+        paddingHorizontal: 5
+    },
+    borderRight: {
+        borderRightWidth: 1,
+        borderRightColor: '#F3F4F6'
+    },
+    karatLabel: {
+        fontSize: 11,
+        color: COLORS.secondary,
+        marginBottom: 4,
+        fontWeight: '600'
+    },
+    priceText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#B7791F', // Gold/Bronze color
         marginBottom: 2
     },
-    priceRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline'
-    },
-    currency: {
-        fontSize: 12,
-        color: COLORS.primary,
-        fontWeight: 'bold',
-        marginRight: 2
-    },
-    price: {
-        fontSize: 16,
-        color: COLORS.primary,
-        fontWeight: 'bold',
-        fontFamily: FONTS.bold,
-    },
-    unit: {
+    unitLabel: {
         fontSize: 10,
-        color: '#A1887F',
-        marginLeft: 2,
-        fontWeight: '500'
-    },
-    trendIndicator: {
-        marginLeft: 12,
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: '#F0FFF4',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 0.5
-    },
-    trendActive: {
-        opacity: 1
+        color: '#9CA3AF',
+        marginBottom: 20
     }
 });
 

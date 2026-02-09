@@ -28,6 +28,7 @@ import Share from 'react-native-share';
 import aurumLogo from '../assets/AURUM.png';
 import safproLogo from '../../public/assests/Safpro-logo.png';
 import RNFS from 'react-native-fs';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -42,6 +43,91 @@ const MerchantUsers = ({ user }) => {
     const [subscribers, setSubscribers] = useState([]);
     const [pendingPayments, setPendingPayments] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [expandedSubId, setExpandedSubId] = useState(null);
+
+    // Date Search State
+    const [dateQuery, setDateQuery] = useState('');
+    const [dailyPayments, setDailyPayments] = useState(null);
+    const [isSearchingDate, setIsSearchingDate] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showDateInput, setShowDateInput] = useState(false);
+
+    const handleDateChange = (event, selectedDate) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+        }
+
+        if (selectedDate) {
+            const currentDate = selectedDate || new Date();
+            const formatted = currentDate.toISOString().split('T')[0];
+            setDateQuery(formatted);
+        }
+    };
+
+    const executeSettlement = async () => {
+        if (!selectedWithdrawalRequest) return;
+        if (!settlementForm.amount || !settlementForm.transactionId) {
+            showCustomAlert("Error", "Please enter amount and transaction ID", "error");
+            return;
+        }
+
+        setSubmittingSettlement(true);
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            // Using the plan ID from selectedWithdrawalRequest
+            const planId = selectedWithdrawalRequest.plan._id;
+            const userId = selectedWithdrawalRequest.user._id;
+
+            await axios.post(`${APIURL}/chit-plans/${planId}/settle`, {
+                userId,
+                amount: settlementForm.amount,
+                transactionId: settlementForm.transactionId,
+                note: settlementForm.note
+            }, config);
+
+            setSettlementModalVisible(false);
+            showCustomAlert("Success", "Settlement processed successfully", "success", [
+                {
+                    text: "Invoice",
+                    onPress: () => {
+                        generateSettlementReceipt(selectedWithdrawalRequest, settlementForm);
+                    }
+                },
+                { text: "OK" }
+            ]);
+
+            fetchData();
+        } catch (error) {
+            console.error("Settlement failed", error);
+            showCustomAlert("Error", "Failed to process settlement", "error");
+        } finally {
+            setSubmittingSettlement(false);
+        }
+    };
+
+    const handleDateSearch = async () => {
+        if (!dateQuery) return;
+        setIsSearchingDate(true);
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${APIURL}/payments/search/date?date=${dateQuery}`, config);
+            setDailyPayments(data);
+        } catch (error) {
+            console.error("Date search failed", error);
+            if (error.response?.status === 403) {
+                showCustomAlert("Premium Feature", "This feature is available only for Premium merchants.", "info");
+            } else {
+                showCustomAlert("Error", "Failed to fetch payments for this date.", "error");
+            }
+        } finally {
+            setIsSearchingDate(false);
+        }
+    };
+
+    const clearDateSearch = () => {
+        setDailyPayments(null);
+        setDateQuery('');
+    };
 
     // Action States
     const [actionLoading, setActionLoading] = useState(null); // ID of payment being processed
@@ -73,6 +159,17 @@ const MerchantUsers = ({ user }) => {
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [paymentHistory, setPaymentHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // Settlement State
+    const [withdrawalRequests, setWithdrawalRequests] = useState([]);
+    const [settlementModalVisible, setSettlementModalVisible] = useState(false);
+    const [selectedWithdrawalRequest, setSelectedWithdrawalRequest] = useState(null);
+    const [settlementForm, setSettlementForm] = useState({
+        amount: '',
+        transactionId: '',
+        note: ''
+    });
+    const [submittingSettlement, setSubmittingSettlement] = useState(false);
 
     // --- PDF Generation Logic ---
 
@@ -311,6 +408,91 @@ const MerchantUsers = ({ user }) => {
         }
     };
 
+    const generateSettlementReceipt = async (subscriber, settlementData) => {
+        setLoading(true);
+        try {
+            // Recycled Logo Logic
+            let aurumLogoImgTag = 'AURUM';
+            let safproLogoImgTag = 'Safpro';
+            let shopLogoImgTag = null;
+
+            if (Platform.OS === 'android' && !__DEV__) {
+                aurumLogoImgTag = `<img src="file:///android_asset/AURUM.png" style="width: 70px; height: auto;" />`;
+                safproLogoImgTag = `<img src="file:///android_asset/Safpro-logo.png" style="width: 120px; height: auto;" />`;
+            } else {
+                const aurumLogoUrl = Image.resolveAssetSource(aurumLogo).uri;
+                const aurumLogoBase64 = await fetchImageAsBase64(aurumLogoUrl);
+                if (aurumLogoBase64) aurumLogoImgTag = `<img src="${aurumLogoBase64}" style="width: 70px; height: auto;" />`;
+
+                const safproLogoUrl = Image.resolveAssetSource(safproLogo).uri;
+                const safproLogoBase64 = await fetchImageAsBase64(safproLogoUrl);
+                if (safproLogoBase64) safproLogoImgTag = `<img src="${safproLogoBase64}" style="width: 120px; height: auto;" />`;
+            }
+
+            if (user.shopLogo) {
+                const shopLogoBase64 = await fetchImageAsBase64(`${BASE_URL}${user.shopLogo}`);
+                if (shopLogoBase64) {
+                    shopLogoImgTag = `<img src="${shopLogoBase64}" style="width: 70px; height: auto;" />`;
+                }
+            }
+
+            const merchantName = user.name.toUpperCase();
+            const customerName = subscriber.user.name.toUpperCase();
+
+            const html = `
+                <html>
+                <body style="font-family: Helvetica; padding: 20px;">
+                    <div style="text-align: center; border-bottom: 2px solid #915200; padding-bottom: 20px; margin-bottom: 20px;">
+                        ${shopLogoImgTag ? shopLogoImgTag : aurumLogoImgTag}
+                        <h2 style="color: #915200; margin: 10px 0;">${merchantName}</h2>
+                        <h3 style="margin: 5px 0;">SETTLEMENT RECEIPT</h3>
+                        <p style="color: #666; font-size: 12px;">Date: ${new Date().toLocaleDateString()}</p>
+                        ${shopLogoImgTag ? `<div style="margin-top: 10px;">${shopLogoImgTag}</div>` : ''}
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <p><strong>To:</strong> ${customerName}</p>
+                        <p><strong>Plan:</strong> ${subscriber.plan.planName}</p>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Description</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Details</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee;">Settlement Amount</td>
+                            <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold;">Rs. ${Number(settlementData.amount).toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee;">Transaction Ref</td>
+                            <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">${settlementData.transactionId}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee;">Note</td>
+                            <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">${settlementData.note || '-'}</td>
+                        </tr>
+                    </table>
+
+                    <div style="text-align: center; margin-top: 40px; color: #888; font-size: 12px;">
+                        <p>This amounts fully settles the chit plan.</p>
+                        <div style="margin-top: 20px;">
+                             ${safproLogoImgTag}
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            await createAndDownloadPDF(html, `Settlement_${subscriber.user.name}_${Date.now()}`);
+        } catch (error) {
+            console.error(error);
+            showCustomAlert("Error", "Failed to generate receipt", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const generateStatement = async (subscriber, history) => {
         setLoading(true);
         try {
@@ -443,6 +625,39 @@ const MerchantUsers = ({ user }) => {
                         </tbody>
                     </table>
 
+                    ${subscriber.subscription?.status === 'settled' ? (() => {
+                    const details = subscriber.subscription.settlementDetails || {};
+                    const settlementAmount = details.amount || totalPaid;
+                    const settlementDate = details.settledDate ? new Date(details.settledDate).toLocaleDateString() : new Date().toLocaleDateString();
+                    const settlementTxnId = details.transactionId || 'N/A';
+                    const settlementNotes = details.note || 'Settled';
+
+                    return `
+                        <div style="margin-top: 30px; border-top: 2px dashed #915200; padding-top: 20px;">
+                            <h3 style="color: #915200; text-align: center; margin-bottom: 20px; font-size: 16px;">SETTLEMENT DETAILS</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr style="background-color: #fffbf0;">
+                                    <td style="font-weight: bold; color: #915200; width: 40%;">Settlement Date</td>
+                                    <td style="text-align: right;">${settlementDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: bold; color: #915200;">Transaction ID</td>
+                                    <td style="text-align: right;">${settlementTxnId}</td>
+                                </tr>
+                                <tr style="background-color: #fffbf0;">
+                                    <td style="font-weight: bold; color: #915200;">Settlement Amount</td>
+                                    <td style="text-align: right; font-weight: bold; color: #2E7D32;">Rs. ${Number(settlementAmount).toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: bold; color: #915200;">Notes</td>
+                                    <td style="text-align: right; font-style: italic;">${settlementNotes}</td>
+                                </tr>
+                            </table>
+                            <p style="text-align: center; color: #2E7D32; font-weight: bold; margin-top: 15px; font-size: 14px;">✓ This plan has been fully settled.</p>
+                        </div>
+                        `;
+                })() : ''}
+
                      <div class="footer">
                         <p>Thank you for your business!</p>
                         <div style="margin-top: 20px;">
@@ -500,6 +715,13 @@ const MerchantUsers = ({ user }) => {
 
             setSubscribers(uniqueSubscribers);
 
+            // 3. Filter Withdrawal Requests
+            const requests = uniqueSubscribers.filter(
+                s => s.subscription.status === 'requested_withdrawal'
+            );
+            setWithdrawalRequests(requests);
+
+
         } catch (error) {
             console.error("Error fetching merchant users data", error);
         } finally {
@@ -515,6 +737,11 @@ const MerchantUsers = ({ user }) => {
     const onRefresh = () => {
         setRefreshing(true);
         fetchData();
+    };
+
+    const toggleDateInput = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setShowDateInput(!showDateInput);
     };
 
     const toggleSearch = () => {
@@ -679,6 +906,7 @@ const MerchantUsers = ({ user }) => {
         Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
     };
 
+
     // --- Render Items ---
 
     const renderPendingPayment = ({ item }) => (
@@ -750,6 +978,80 @@ const MerchantUsers = ({ user }) => {
         </View>
     );
 
+
+
+    const renderWithdrawalRequest = ({ item }) => (
+        <View style={styles.withdrawalCard}>
+            {/* Header section with User Info and Amount */}
+            <View style={styles.withdrawalHeader}>
+                <View style={styles.withdrawalUserInfo}>
+                    <Image
+                        source={{ uri: item.user?.profileImage ? `${BASE_URL}${item.user.profileImage}` : 'https://via.placeholder.com/100' }}
+                        style={styles.withdrawalAvatar}
+                    />
+                    <View>
+                        <Text style={styles.withdrawalUserName}>{item.user?.name}</Text>
+                        <Text style={styles.withdrawalUserPhone}>{item.user?.phone}</Text>
+                    </View>
+                </View>
+                <View style={styles.withdrawalAmountBadge}>
+                    <Text style={styles.withdrawalAmountLabel}>Total Saved</Text>
+                    <Text style={styles.withdrawalAmountValue}>₹{item.subscription.totalSaved}</Text>
+                </View>
+            </View>
+
+            {/* Bank Details Section */}
+            <View style={styles.bankDetailsContainer}>
+                <View style={styles.bankDetailRow}>
+                    <Icon name="university" size={12} color={COLORS.primary} style={{ width: 20, textAlign: 'center' }} />
+                    <Text style={styles.bankDetailText} numberOfLines={1}>
+                        {item.subscription.withdrawalRequest?.bankName || 'N/A'}
+                    </Text>
+                </View>
+                <View style={[styles.bankDetailRow, { marginTop: 4 }]}>
+                    <Icon name="credit-card" size={12} color={COLORS.primary} style={{ width: 20, textAlign: 'center' }} />
+                    <Text style={styles.bankDetailText}>
+                        {item.subscription.withdrawalRequest?.accountNumber || 'N/A'}
+                    </Text>
+                </View>
+                <View style={[styles.bankDetailRow, { marginTop: 4 }]}>
+                    <Icon name="code" size={12} color={COLORS.primary} style={{ width: 20, textAlign: 'center' }} />
+                    <Text style={styles.bankDetailText}>
+                        {item.subscription.withdrawalRequest?.ifsc || 'N/A'}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Optional User Message */}
+            {item.subscription.withdrawalRequest?.message && (
+                <View style={styles.withdrawalMessageContainer}>
+                    <Icon name="comment-alt" size={10} color="#F57C00" style={{ marginTop: 2, marginRight: 6 }} />
+                    <Text style={styles.withdrawalMessageText}>{item.subscription.withdrawalRequest.message}</Text>
+                </View>
+            )}
+
+            {/* Action Button */}
+            {item.plan.returnType === 'Cash' && (
+                <TouchableOpacity
+                    style={styles.settleButton}
+                    activeOpacity={0.9}
+                    onPress={() => {
+                        setSelectedWithdrawalRequest(item);
+                        setSettlementForm({
+                            amount: item.subscription.totalSaved.toString(),
+                            transactionId: '',
+                            note: ''
+                        });
+                        setSettlementModalVisible(true);
+                    }}
+                >
+                    <Text style={styles.settleButtonText}>Settle & Pay</Text>
+                    <Icon name="arrow-right" size={12} color="#fff" />
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
     const renderSubscriber = ({ item }) => {
         const percentage = Math.round((item.subscription.installmentsPaid / item.plan.durationMonths) * 100);
         const remainingBalance = item.plan.totalAmount - item.subscription.totalAmountPaid;
@@ -757,8 +1059,20 @@ const MerchantUsers = ({ user }) => {
             ? Math.ceil(item.subscription.pendingAmount / item.plan.monthlyAmount)
             : 0;
 
+        const isExpanded = expandedSubId === item.subscriberId;
+
+        // Check if eligible for random settlement (Fully paid, Cash plan, not requested via app)
+        const canSettle = item.plan.returnType === 'Cash' &&
+            item.subscription.installmentsPaid >= item.plan.durationMonths &&
+            item.subscription.status !== 'settled' &&
+            item.subscription.status !== 'requested_withdrawal';
+
         return (
-            <View style={styles.subscriberCard}>
+            <TouchableOpacity
+                style={styles.subscriberCard}
+                activeOpacity={0.9}
+                onPress={() => setExpandedSubId(isExpanded ? null : item.subscriberId)}
+            >
                 <View style={styles.subHeader}>
                     <View style={styles.userInfo}>
                         {item.user.profileImage ? (
@@ -802,41 +1116,71 @@ const MerchantUsers = ({ user }) => {
                     </View>
                 </View>
 
+                {isExpanded && (
+                    <View style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' }}>
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Joined:</Text>
+                            <Text style={styles.value}>{new Date(item.subscription.joinedAt).toLocaleDateString()}</Text>
+                        </View>
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Status:</Text>
+                            <Text style={[styles.value, { color: item.subscription.status === 'active' ? 'orange' : 'green', fontWeight: 'bold' }]}>
+                                {item.subscription.status ? item.subscription.status.toUpperCase() : 'ACTIVE'}
+                            </Text>
+                        </View>
+                        {item.subscription.status === 'settled' && (
+                            <View style={[styles.statusTag, { backgroundColor: '#E8F5E9', marginTop: 5, alignSelf: 'flex-start' }]}>
+                                <Icon name="check-circle" size={12} color="#2E7D32" />
+                                <Text style={styles.statusOkText}>Plan Settled</Text>
+                            </View>
+                        )}
+
+
+                    </View>
+                )}
+
                 <View style={styles.subFooter}>
                     {monthsDueCount > 0 ? (
                         <View style={[styles.statusTag, styles.statusDue]}>
                             <Icon name="exclamation-circle" size={12} color="#D32F2F" />
-                            <Text style={styles.statusDueText}>{monthsDueCount} Months Due</Text>
+                            <Text style={styles.statusDueText}>{monthsDueCount} Due</Text>
                         </View>
                     ) : (
-                        <View style={[styles.statusTag, styles.statusOk]}>
-                            <Icon name="check-circle" size={12} color="#2E7D32" />
-                            <Text style={styles.statusOkText}>Up-to-Date</Text>
-                        </View>
+                        item.subscription.status !== 'settled' ? (
+                            <View style={[styles.statusTag, styles.statusOk]}>
+                                <Icon name="check-circle" size={12} color="#2E7D32" />
+                                <Text style={styles.statusOkText}>Up-to-Date</Text>
+                            </View>
+                        ) : <View />
                     )}
 
-                    <TouchableOpacity
-                        style={styles.viewHistoryButton}
-                        onPress={() => openHistoryModal(item)}
-                    >
-                        <Icon name="history" size={14} color={COLORS.secondary} />
-                        <Text style={styles.viewHistoryText}>History</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 5 }}>
+                        <TouchableOpacity
+                            style={styles.viewHistoryButton}
+                            onPress={() => openHistoryModal(item)}
+                        >
+                            <Icon name="history" size={12} color={COLORS.secondary} />
+                            <Text style={styles.viewHistoryText}>History</Text>
+                        </TouchableOpacity>
 
-
-
-                    <TouchableOpacity
-                        style={[
-                            styles.payOfflineButton,
-                            remainingBalance <= 0 && { opacity: 0.5 }
-                        ]}
-                        onPress={() => openManualPaymentModal(item)}
-                        disabled={remainingBalance <= 0}
-                    >
-                        <Text style={styles.payOfflineText}>Paid Offline</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.payOfflineButton,
+                                remainingBalance <= 0 && { opacity: 0.5 }
+                            ]}
+                            onPress={() => openManualPaymentModal(item)}
+                            disabled={remainingBalance <= 0}
+                        >
+                            <Text style={styles.payOfflineText}>Pay Offline</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+
+                {/* Visual Indicator for Expand */}
+                <View style={{ alignItems: 'center', marginTop: 5 }}>
+                    <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={10} color="#ccc" />
+                </View>
+            </TouchableOpacity>
         );
     };
 
@@ -864,6 +1208,24 @@ const MerchantUsers = ({ user }) => {
                     </View>
                 )}
 
+
+
+                {/* Withdrawal Requests Section */}
+                {withdrawalRequests.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Icon name="money-bill-wave" size={16} color={COLORS.primary} />
+                            <Text style={styles.sectionTitle}>Withdrawal Requests ({withdrawalRequests.length})</Text>
+                        </View>
+                        <FlatList
+                            data={withdrawalRequests}
+                            renderItem={renderWithdrawalRequest}
+                            keyExtractor={item => item.user._id + item.plan._id + 'withdrawal'}
+                            scrollEnabled={false}
+                        />
+                    </View>
+                )}
+
                 {/* Subscribers Section */}
                 <View style={[styles.section, { marginTop: pendingPayments.length > 0 ? 20 : 0 }]}>
                     <View style={styles.sectionHeader}>
@@ -871,10 +1233,128 @@ const MerchantUsers = ({ user }) => {
                             <Icon name="users" size={16} color={COLORS.primary} />
                             <Text style={styles.sectionTitle}>User Subscriptions</Text>
                         </View>
+                        {user?.plan === 'Premium' && (
+                            <TouchableOpacity onPress={toggleDateInput} style={[styles.searchToggle, { marginRight: 8 }]}>
+                                <Icon name={showDateInput ? "times" : "calendar-alt"} size={16} color={COLORS.primary} />
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity onPress={toggleSearch} style={styles.searchToggle}>
                             <Icon name={showSearch ? "times" : "search"} size={18} color={COLORS.primary} />
                         </TouchableOpacity>
                     </View>
+
+                    {/* Date Search Input & Results (Premium) */}
+                    {user?.plan === 'Premium' && showDateInput && (
+                        <View style={{ marginBottom: 15 }}>
+                            <View style={styles.searchContainer}>
+                                <TouchableOpacity
+                                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: '100%' }}
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Icon name="calendar" size={14} color="#9CA3AF" style={{ marginRight: 10 }} />
+                                    <Text style={{ color: dateQuery ? COLORS.dark : '#999', fontSize: 14 }}>
+                                        {dateQuery || "Select Date..."}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {dateQuery ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <TouchableOpacity
+                                            style={{ marginRight: 10, padding: 5 }}
+                                            onPress={handleDateSearch}
+                                            disabled={isSearchingDate}
+                                        >
+                                            {isSearchingDate ? (
+                                                <ActivityIndicator size="small" color={COLORS.primary} />
+                                            ) : (
+                                                <Icon name="search" size={16} color={COLORS.primary} />
+                                            )}
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={clearDateSearch} style={{ padding: 5 }}>
+                                            <Icon name="times-circle" size={16} color="#9CA3AF" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null}
+
+                                {/* Date Pickers */}
+                                {showDatePicker && Platform.OS === 'android' && (
+                                    <DateTimePicker
+                                        testID="dateTimePicker"
+                                        value={dateQuery ? new Date(dateQuery) : new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display="default"
+                                        onChange={handleDateChange}
+                                        maximumDate={new Date()}
+                                    />
+                                )}
+
+                                {Platform.OS === 'ios' && (
+                                    <Modal
+                                        transparent={true}
+                                        animationType="slide"
+                                        visible={showDatePicker}
+                                        onRequestClose={() => setShowDatePicker(false)}
+                                    >
+                                        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                                            <View style={{ backgroundColor: 'white', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, alignItems: 'center' }}>
+                                                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: COLORS.textPrimary }}>Select Date</Text>
+                                                    <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ padding: 5 }}>
+                                                        <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: 16 }}>Done</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                                <DateTimePicker
+                                                    testID="dateTimePicker"
+                                                    value={dateQuery ? new Date(dateQuery) : new Date()}
+                                                    mode="date"
+                                                    is24Hour={true}
+                                                    display="spinner"
+                                                    onChange={handleDateChange}
+                                                    maximumDate={new Date()}
+                                                    style={{ height: 120 }}
+                                                    textColor={COLORS.textPrimary}
+                                                />
+                                            </View>
+                                        </View>
+                                    </Modal>
+                                )}
+                            </View>
+
+                            {/* Daily Results */}
+                            {dailyPayments && (
+                                <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.resultTitle}>
+                                        Transactions on {dateQuery}: <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>{dailyPayments.length}</Text>
+                                    </Text>
+
+                                    {dailyPayments.length === 0 ? (
+                                        <View style={styles.emptyContainer}>
+                                            <Text style={styles.emptyText}>No payments found for this date.</Text>
+                                        </View>
+                                    ) : (
+                                        dailyPayments.map(pay => (
+                                            <View key={pay._id} style={styles.paymentResultCard}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                    <Text style={styles.resultName}>{pay.user?.name || 'Unknown'}</Text>
+                                                    <Text style={styles.resultAmount}>₹{pay.amount}</Text>
+                                                </View>
+                                                <Text style={styles.resultPlan}>{pay.chitPlan?.planName}</Text>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+                                                    <Text style={[styles.resultBadge, pay.type === 'offline' ? { color: '#666', backgroundColor: '#eee' } : { color: COLORS.primary, backgroundColor: COLORS.primary + '10' }]}>
+                                                        {pay.type === 'offline' ? 'Offline' : 'Online'}
+                                                    </Text>
+                                                    <TouchableOpacity onPress={() => generateInvoice(pay, { user: pay.user, chitPlan: pay.chitPlan, plan: pay.chitPlan })}>
+                                                        <Icon name="file-invoice" size={14} color={COLORS.primary} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ))
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {showSearch && (
                         <View style={styles.searchContainer}>
@@ -1052,8 +1532,8 @@ const MerchantUsers = ({ user }) => {
                                             </View>
                                             <View style={styles.statItem}>
                                                 <Text style={styles.statLabel}>Status</Text>
-                                                <Text style={[styles.statValue, { color: selectedSubscriber.subscription.status === 'completed' ? 'green' : 'orange' }]}>
-                                                    {selectedSubscriber.subscription.status === 'completed' ? 'Done' : 'Active'}
+                                                <Text style={[styles.statValue, { color: (selectedSubscriber.subscription.status === 'completed' || selectedSubscriber.subscription.status === 'settled') ? 'green' : 'orange' }]}>
+                                                    {selectedSubscriber.subscription.status ? selectedSubscriber.subscription.status.toUpperCase() : 'Active'}
                                                 </Text>
                                             </View>
                                         </View>
@@ -1088,6 +1568,81 @@ const MerchantUsers = ({ user }) => {
                                 )}
                             />
                         )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Settlement Modal */}
+            <Modal
+                transparent={true}
+                visible={settlementModalVisible}
+                animationType="slide"
+                onRequestClose={() => setSettlementModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Settle & Pay</Text>
+                            <TouchableOpacity onPress={() => setSettlementModalVisible(false)}>
+                                <Icon name="times" size={20} color="#999" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView>
+                            <Text style={styles.modalInfo}>
+                                Settle funds for <Text style={{ fontWeight: 'bold' }}>{selectedWithdrawalRequest?.user.name}</Text>.
+                            </Text>
+                            <Text style={[styles.modalInfo, { marginBottom: 20 }]}>
+                                Total Saved: ₹{selectedWithdrawalRequest?.subscription.totalSaved}
+                            </Text>
+
+                            {/* Display Withdrawal Details for Merchant */}
+                            {selectedWithdrawalRequest?.subscription?.withdrawalRequest && (
+                                <View style={{ backgroundColor: '#f0f4f8', padding: 10, borderRadius: 8, marginBottom: 20 }}>
+                                    <Text style={{ fontWeight: 'bold', color: COLORS.dark, marginBottom: 5 }}>Bank Details:</Text>
+                                    <Text style={{ fontSize: 13, color: '#333' }}>Name: {selectedWithdrawalRequest.user.name}</Text>
+                                    <Text style={{ fontSize: 13, color: '#333' }}>Bank: {selectedWithdrawalRequest.subscription.withdrawalRequest.bankName || 'N/A'}</Text>
+                                    <Text style={{ fontSize: 13, color: '#333' }}>A/C No: {selectedWithdrawalRequest.subscription.withdrawalRequest.accountNumber}</Text>
+                                    <Text style={{ fontSize: 13, color: '#333' }}>IFSC: {selectedWithdrawalRequest.subscription.withdrawalRequest.ifsc}</Text>
+                                </View>
+                            )}
+
+                            <Text style={styles.inputLabel}>Amount Settled (₹)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={settlementForm.amount}
+                                onChangeText={t => setSettlementForm({ ...settlementForm, amount: t })}
+                                keyboardType="numeric"
+                            />
+
+                            <Text style={styles.inputLabel}>Transaction ID / Reference</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={settlementForm.transactionId}
+                                onChangeText={t => setSettlementForm({ ...settlementForm, transactionId: t })}
+                            />
+
+                            <Text style={styles.inputLabel}>Notes</Text>
+                            <TextInput
+                                style={[styles.textInput, { height: 60, textAlignVertical: 'top' }]}
+                                value={settlementForm.note}
+                                onChangeText={t => setSettlementForm({ ...settlementForm, note: t })}
+                                multiline
+                                placeholder="Bank transfer details..."
+                            />
+
+                            <TouchableOpacity
+                                style={styles.submitButton}
+                                onPress={executeSettlement}
+                                disabled={submittingSettlement}
+                            >
+                                {submittingSettlement ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Confirm Settlement</Text>
+                                )}
+                            </TouchableOpacity>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -1545,6 +2100,191 @@ const styles = StyleSheet.create({
         color: COLORS.dark,
         height: '100%'
     },
+    // Date Search Styles
+    dateSearchContainer: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 15
+    },
+    dateInput: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        height: 45,
+        color: COLORS.dark
+    },
+    dateSearchButton: {
+        backgroundColor: COLORS.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        height: 45
+    },
+    dateSearchButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    dateClearButton: {
+        width: 45,
+        height: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#eee',
+        borderRadius: 8,
+    },
+    resultTitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 10,
+        fontWeight: '600'
+    },
+    paymentResultCard: {
+        backgroundColor: '#fff',
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 8,
+        borderLeftWidth: 3,
+        borderLeftColor: COLORS.primary,
+        elevation: 1
+    },
+    resultName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.dark
+    },
+    resultAmount: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#2E7D32'
+    },
+    resultPlan: {
+        fontSize: 12,
+        color: '#666'
+    },
+    resultBadge: {
+        fontSize: 10,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        overflow: 'hidden',
+        fontWeight: '600'
+    },
+    // New Withdrawal Card Styles
+    withdrawalCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: COLORS.primary, // Brand shadow
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(145, 82, 0, 0.1)', // Subtle brand border
+    },
+    withdrawalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    withdrawalUserInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    withdrawalAvatar: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: '#f5f5f5',
+        borderWidth: 1,
+        borderColor: '#fff',
+    },
+    withdrawalUserName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.dark,
+        marginLeft: 10,
+    },
+    withdrawalUserPhone: {
+        fontSize: 11,
+        color: COLORS.secondary,
+        marginLeft: 10,
+        marginTop: 2,
+    },
+    withdrawalAmountBadge: {
+        alignItems: 'flex-end',
+    },
+    withdrawalAmountLabel: {
+        fontSize: 10,
+        color: COLORS.secondary,
+        textTransform: 'uppercase',
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    withdrawalAmountValue: {
+        fontSize: 16,
+        fontWeight: '900',
+        color: COLORS.primary,
+    },
+    bankDetailsContainer: {
+        backgroundColor: '#fafbfc',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    bankDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    bankDetailText: {
+        fontSize: 13,
+        color: COLORS.dark,
+        marginLeft: 10,
+        fontWeight: '500',
+        flex: 1,
+    },
+    withdrawalMessageContainer: {
+        flexDirection: 'row',
+        marginTop: 10,
+        padding: 10,
+        backgroundColor: '#FFF3E0', // Light Orange
+        borderRadius: 8,
+    },
+    withdrawalMessageText: {
+        fontSize: 12,
+        color: '#E65100', // Darker Orange
+        fontStyle: 'italic',
+        flex: 1,
+        lineHeight: 16,
+    },
+    settleButton: {
+        backgroundColor: COLORS.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 16,
+        shadowColor: COLORS.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 4,
+    },
+    settleButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: 'bold',
+        marginRight: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    }
 });
 
 export default MerchantUsers;

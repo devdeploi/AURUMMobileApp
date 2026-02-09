@@ -1,23 +1,25 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, RefreshControl, Image, Linking, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS } from '../../styles/theme';
 import { LineChart, PieChart } from 'react-native-chart-kit'; // Ensure this is installed
 import axios from 'axios';
-import { APIURL } from '../../constants/api';
+import { APIURL, BASE_URL } from '../../constants/api';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Slider from '@react-native-community/slider';
+import GoldTicker from '../GoldTicker';
+import Calculator from '../Calculator';
+
 
 const { width } = Dimensions.get('window');
 
 const DashboardTab = ({ user, goldRate: propGoldRate }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [internalGoldRate, setInternalGoldRate] = useState(0);
 
-    // SIP Calculator State
-    const [calcAmount, setCalcAmount] = useState(5000);
-    const [calcMonths, setCalcMonths] = useState(20);
+
 
     const [stats, setStats] = useState({
         totalSaved: 0,
@@ -35,8 +37,8 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
         }
     }, [user]);
 
-    // Use goldRate from prop
-    const goldRate = propGoldRate || 0;
+    // Update goldRate logic
+    const goldRate = propGoldRate || internalGoldRate;
 
     const fetchDashboardData = async () => {
         // Only set main loading if not refreshing
@@ -44,9 +46,28 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
-            // 1. Fetch My Plans (Subscriptions) - assuming endpoint returns array of populated subscription objects
-            // Adjust endpoint if necessary based on your backend.
+            // 0. Fetch Gold Rate if needed
+            if (!propGoldRate) {
+                try {
+                    const response = await fetch('https://data-asg.goldprice.org/dbXRates/INR');
+                    const data = await response.json();
+                    if (data.items && data.items.length > 0) {
+                        const pricePerOunce = data.items[0].xauPrice;
+                        const pricePerGram24K = pricePerOunce / 31.1035;
+                        // India Market Adjustments (2026) -> ~11% markup for Import Duty + Premium
+                        const marketMarkup = 1.11;
+                        const buyPrice24 = pricePerGram24K * marketMarkup;
+                        setInternalGoldRate(buyPrice24);
+                    }
+                } catch (err) {
+                    console.log("Failed to fetch gold rate internally", err);
+                }
+            }
+
+            // 1. Fetch My Plans (Subscriptions)
             const { data: plans } = await axios.get(`${APIURL}/chit-plans/my-plans`, config);
+
+
 
             // Calculate Stats
             let totalSaved = 0;
@@ -132,6 +153,12 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
         );
     }
 
+    const handleAdPress = (link) => {
+        if (link) {
+            Linking.openURL(link).catch(err => console.error("Couldn't load page", err));
+        }
+    };
+
     return (
         <View style={styles.wrapper}>
             <ScrollView
@@ -140,10 +167,16 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
                 }
             >
+                <GoldTicker onRateUpdate={setInternalGoldRate} />
                 <View style={styles.headerSection}>
                     <Text style={styles.welcomeText}>Hello, {user.name.split(' ')[0]}</Text>
                     <Text style={styles.subText}>Here is your financial overview</Text>
                 </View>
+
+                {/* Ads Component - Removed, now global */}
+
+
+
 
                 {/* Key Stats Cards */}
                 <View style={styles.statGrid}>
@@ -165,6 +198,8 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
                         <Text style={{ color: COLORS.secondary, fontSize: 10 }}>Across {stats.activeChits} Plans</Text>
                     </View>
                 </View>
+                {/* SIP Calculator - Interactive Card */}
+                <Calculator liveGoldRate={goldRate} />
 
                 {/* Gold Equivalence - For Display Representation */}
                 <View style={styles.goldVaultCard}>
@@ -238,70 +273,7 @@ const DashboardTab = ({ user, goldRate: propGoldRate }) => {
                     </View>
                 )}
 
-                {/* SIP Calculator - Interactive Card */}
-                <View style={styles.calculatorCard}>
-                    <View style={styles.calcHeader}>
-                        <View style={styles.calcTitleRow}>
-                            <Icon name="gem" size={16} color={COLORS.primary} />
-                            <Text style={styles.calcTitle}>SIP Calculator</Text>
-                        </View>
-                        <Text style={styles.headerSubtitle}>Quick Estimate</Text>
-                    </View>
-
-                    <View style={styles.calcBody}>
-                        <View style={styles.inputGroup}>
-                            <View style={styles.inputLabelRow}>
-                                <Text style={styles.inputLabel}>Monthly Contribution</Text>
-                                <Text style={styles.inputValue}>₹{calcAmount.toLocaleString()}</Text>
-                            </View>
-                            <Slider
-                                style={styles.slider}
-                                minimumValue={1000}
-                                maximumValue={50000}
-                                step={1000}
-                                value={calcAmount}
-                                onValueChange={setCalcAmount}
-                                minimumTrackTintColor={COLORS.primary}
-                                maximumTrackTintColor="#E2E8F0"
-                                thumbTintColor={COLORS.primary}
-                            />
-                        </View>
-
-                        <View style={[styles.inputGroup, { marginBottom: 0 }]}>
-                            <View style={styles.inputLabelRow}>
-                                <Text style={styles.inputLabel}>Duration (Months)</Text>
-                                <Text style={styles.inputValue}>{calcMonths} Mo</Text>
-                            </View>
-                            <Slider
-                                style={styles.slider}
-                                minimumValue={10}
-                                maximumValue={50}
-                                step={5}
-                                value={calcMonths}
-                                onValueChange={setCalcMonths}
-                                minimumTrackTintColor={COLORS.primary}
-                                maximumTrackTintColor="#E2E8F0"
-                                thumbTintColor={COLORS.primary}
-                            />
-                        </View>
-
-                        {/* Unique Maturity Display */}
-                        <View style={styles.maturityShowcase}>
-                            <View style={styles.glowRef} />
-                            <View style={styles.maturityContent}>
-                                <Text style={styles.maturityLabel}>Maturity Fund</Text>
-                                <View style={styles.amountWrap}>
-                                    <Text style={styles.currencySymbol}>₹</Text>
-                                    <Text style={styles.mainAmount}>{(calcAmount * calcMonths).toLocaleString()}</Text>
-                                </View>
-                                <View style={styles.targetIndicator}>
-                                    <Icon name="rocket" size={10} color={COLORS.primary} />
-                                    <Text style={styles.targetText}>Expected Growth Target</Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </View>
+                
 
                 {/* Recent Activity List - Horizontal Scroll */}
                 <Text style={styles.sectionTitle}>Your Active Chits</Text>
@@ -760,7 +732,29 @@ const styles = StyleSheet.create({
         marginTop: 12,
         textAlign: 'center',
         opacity: 0.8
-    }
+    },
+    // Ads Styles
+    adsContainer: {
+        height: 180,
+        marginBottom: 25,
+    },
+    adCard: {
+        width: width - 40,
+        height: 180,
+        marginRight: 10,
+        borderRadius: 20,
+        overflow: 'hidden',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        backgroundColor: '#fff',
+    },
+    adImage: {
+        width: '100%',
+        height: '100%',
+    },
 });
 
 export default DashboardTab;

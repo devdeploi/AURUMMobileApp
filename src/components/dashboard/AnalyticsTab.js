@@ -37,6 +37,16 @@ const AnalyticsTab = ({ user }) => {
     });
     const [submittingOffline, setSubmittingOffline] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
+    // Withdrawal State
+    const [withdrawalModalVisible, setWithdrawalModalVisible] = useState(false);
+    const [selectedPlanForWithdrawal, setSelectedPlanForWithdrawal] = useState(null);
+    const [withdrawalForm, setWithdrawalForm] = useState({
+        accountNumber: '',
+        ifsc: '',
+        bankName: '',
+        message: ''
+    });
+    const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
 
 
     const showAlert = (title, message, type = 'info') => {
@@ -63,7 +73,7 @@ const AnalyticsTab = ({ user }) => {
         }
     }, [user]);
     console.log(plans);
-    
+
 
     useEffect(() => {
         if (user && user.token) {
@@ -163,6 +173,45 @@ const AnalyticsTab = ({ user }) => {
         }
     };
 
+    // --- Withdrawal Handlers ---
+    const openWithdrawalModal = (plan) => {
+        setSelectedPlanForWithdrawal(plan);
+        setWithdrawalForm({
+            accountNumber: '',
+            ifsc: '',
+            bankName: '',
+            message: ''
+        });
+        setWithdrawalModalVisible(true);
+    };
+
+    const submitWithdrawalRequest = async () => {
+        if (!selectedPlanForWithdrawal) return;
+        if (!withdrawalForm.accountNumber || !withdrawalForm.ifsc) {
+            showAlert('Error', 'Please provide Account Number and IFSC Code.', 'error');
+            return;
+        }
+
+        setSubmittingWithdrawal(true);
+        try {
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` }
+            };
+
+            await axios.post(`${APIURL}/chit-plans/${selectedPlanForWithdrawal._id}/withdraw`, withdrawalForm, config);
+
+            setWithdrawalModalVisible(false);
+            showAlert('Success', 'Withdrawal request sent to merchant successfully.', 'success');
+            fetchMyPlans(); // Update status
+        } catch (error) {
+            console.error("Withdrawal Request Failed", error);
+            const msg = error.response?.data?.message || "Failed to submit request.";
+            showAlert('Error', msg, 'error');
+        } finally {
+            setSubmittingWithdrawal(false);
+        }
+    };
+
 
 
 
@@ -255,6 +304,7 @@ const AnalyticsTab = ({ user }) => {
                             let dueDate = null;
                             let isPayable = false;
                             let diffDays = 100; // Default large
+                            const isPlanFullyPaid = plan.installmentsPaid >= plan.durationMonths;
 
                             // Parse Due Date
                             if (plan.nextDueDate) {
@@ -264,15 +314,8 @@ const AnalyticsTab = ({ user }) => {
                                 diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
                                 // Determine if payable (Only if current month has reached or passed due month)
-                                if (plan.status === 'active') {
-                                    const currentMonth = now.getMonth();
-                                    const currentYear = now.getFullYear();
-                                    const dueMonth = dueDate.getMonth();
-                                    const dueYear = dueDate.getFullYear();
-
-                                    if (currentYear > dueYear || (currentYear === dueYear && currentMonth >= dueMonth)) {
-                                        isPayable = true;
-                                    }
+                                if (plan.status === 'active' && !isPlanFullyPaid) {
+                                    isPayable = true;
                                 }
                             }
 
@@ -346,9 +389,9 @@ const AnalyticsTab = ({ user }) => {
                                                 <View style={styles.statItem}>
                                                     <Text style={styles.statLabel}>Next Due</Text>
                                                     <Text style={[styles.statValue, diffDays <= 3 && { color: COLORS.error }]}>
-                                                        {dueDate && !isNaN(dueDate.getTime())
+                                                        {isPlanFullyPaid ? 'Completed' : (dueDate && !isNaN(dueDate.getTime())
                                                             ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
-                                                            : 'Due Now'}
+                                                            : 'Due Now')}
                                                     </Text>
                                                 </View>
                                                 <View style={styles.statItem}>
@@ -359,7 +402,53 @@ const AnalyticsTab = ({ user }) => {
 
                                             {/* Payment Buttons */}
                                             <View style={{ gap: 10 }}>
-                                                {isPayable && (
+                                                {/* Withdrawal / Settlement Actions */}
+                                                {(plan.status === 'completed' || plan.status === 'requested_withdrawal' || (plan.status === 'active' && isPlanFullyPaid)) && (
+                                                    <View>
+                                                        {plan.status === 'requested_withdrawal' ? (
+                                                            <View style={[styles.payButton1, { backgroundColor: '#FF9800' }]}>
+                                                                <Text style={styles.payButtonText}>Withdrawal Requested - Pending</Text>
+                                                            </View>
+                                                        ) : (
+                                                            plan.returnType === 'Cash' ? (
+                                                                <TouchableOpacity
+                                                                    style={[styles.payButton1, { backgroundColor: COLORS.success }]}
+                                                                    onPress={() => openWithdrawalModal(plan)}
+                                                                >
+                                                                    <Text style={styles.payButtonText}>Request Withdrawal / Settlement</Text>
+                                                                </TouchableOpacity>
+                                                            ) : null
+                                                        )}
+                                                    </View>
+                                                )}
+
+                                                {plan.status === 'settled' && (
+                                                    <View style={{ backgroundColor: '#F0FFF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#C6F6D5' }}>
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                            <Icon name="check-circle" size={16} color="#38A169" />
+                                                            <Text style={{ marginLeft: 6, fontWeight: 'bold', color: '#2F855A', fontSize: 14 }}>Plan Settled Successfully</Text>
+                                                        </View>
+                                                        {plan.settlementDetails && (
+                                                            <>
+                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                                    Amount: <Text style={{ fontWeight: 'bold' }}>₹{plan.settlementDetails.amount}</Text>
+                                                                </Text>
+                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                                    Ref: {plan.settlementDetails.transactionId}
+                                                                </Text>
+                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                                    Date: {new Date(plan.settlementDetails.settledDate).toLocaleDateString()}
+                                                                </Text>
+                                                                {plan.settlementDetails.note && (
+                                                                    <Text style={{ fontSize: 12, color: '#2F855A', fontStyle: 'italic' }}>
+                                                                        Note: {plan.settlementDetails.note}
+                                                                    </Text>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </View>
+                                                )}
+                                                {isPayable && plan.status === 'active' && (
                                                     <>
                                                         <TouchableOpacity
                                                             style={[
@@ -392,7 +481,7 @@ const AnalyticsTab = ({ user }) => {
                                                                 styles.outlineButtonText,
                                                                 diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
                                                             ]}>
-                                                                Paid Offline (No Fee)?
+                                                                paid Offline (No Fee)?
                                                             </Text>
                                                         </TouchableOpacity>
                                                     </>
@@ -548,6 +637,81 @@ const AnalyticsTab = ({ user }) => {
                                     disabled={submittingOffline}
                                 >
                                     {submittingOffline ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.submitButtonText}>Submit Request</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Withdrawal Request Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={withdrawalModalVisible}
+                    onRequestClose={() => setWithdrawalModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Request Withdrawal</Text>
+                                <TouchableOpacity onPress={() => setWithdrawalModalVisible(false)}>
+                                    <Icon name="times" size={20} color="#999" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                                <Text style={styles.modalSubtitle}>
+                                    Plan Completed: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForWithdrawal?.planName}</Text>
+                                </Text>
+                                <Text style={styles.modalInfo}>
+                                    Please provide your bank details for the settlement of <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForWithdrawal?.totalSaved}</Text>.
+                                </Text>
+
+                                <Text style={styles.inputLabel}>Bank Account Number</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Enter Account Number"
+                                    value={withdrawalForm.accountNumber}
+                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, accountNumber: t })}
+                                    keyboardType="numeric"
+                                />
+
+                                <Text style={styles.inputLabel}>IFSC Code</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Enter IFSC Code"
+                                    value={withdrawalForm.ifsc}
+                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, ifsc: t })}
+                                    autoCapitalize="characters"
+                                />
+
+                                <Text style={styles.inputLabel}>Bank Name (Optional)</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Enter Bank Name"
+                                    value={withdrawalForm.bankName}
+                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, bankName: t })}
+                                />
+
+                                <Text style={styles.inputLabel}>Message to Merchant (Optional)</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="Any specific instructions..."
+                                    value={withdrawalForm.message}
+                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, message: t })}
+                                    multiline
+                                />
+
+                                <TouchableOpacity
+                                    style={[styles.submitButton, submittingWithdrawal && { opacity: 0.7 }]}
+                                    onPress={submitWithdrawalRequest}
+                                    disabled={submittingWithdrawal}
+                                >
+                                    {submittingWithdrawal ? (
                                         <ActivityIndicator color="#fff" />
                                     ) : (
                                         <Text style={styles.submitButtonText}>Submit Request</Text>
@@ -762,6 +926,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 4,
         elevation: 4,
+    },
+    payButton1: {
+        backgroundColor: COLORS.primary,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 4,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
+        paddingVertical: 5
     },
     payButtonUrgent: {
         padding: 14,
