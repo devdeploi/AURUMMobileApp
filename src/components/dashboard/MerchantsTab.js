@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -19,12 +19,37 @@ import { COLORS } from '../../styles/theme';
 import { BASE_URL } from '../../constants/api';
 import { SkeletonItem } from '../SkeletonLoader';
 
+const BATCH_SIZE = 6;
 
-const MerchantsTab = ({ merchants, refreshing,
-    onRefresh, loading, onLoadMore, onSelectMerchant, hasMore }) => {
+const MerchantsTab = ({ merchants, refreshing, onRefresh, loading, onSelectMerchant }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const searchAnimation = useRef(new Animated.Value(0)).current;
+
+    // Pagination State
+    const [displayedMerchants, setDisplayedMerchants] = useState([]);
+    const [page, setPage] = useState(1);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    // Derived filtered list
+    const approvedMerchants = merchants.filter(m => {
+        const isApproved = m.status === 'Approved';
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            (m.name && m.name.toLowerCase().includes(query)) ||
+            (m.phone && m.phone.includes(query)) ||
+            (m.phoneNumber && m.phoneNumber.includes(query)) ||
+            (m.shopName && m.shopName.toLowerCase().includes(query));
+
+        return isApproved && matchesSearch;
+    });
+
+    // Reset and initialize displayed merchants when data or search changes
+    useEffect(() => {
+        setPage(1);
+        setDisplayedMerchants(approvedMerchants.slice(0, BATCH_SIZE));
+    }, [merchants, searchQuery]);
+
 
     const toggleSearch = () => {
         if (isSearchVisible) {
@@ -34,6 +59,7 @@ const MerchantsTab = ({ merchants, refreshing,
                 duration: 300,
                 useNativeDriver: false,
             }).start(() => setIsSearchVisible(false));
+            setSearchQuery(''); // Clear search on close
         } else {
             // Show
             setIsSearchVisible(true);
@@ -45,28 +71,29 @@ const MerchantsTab = ({ merchants, refreshing,
         }
     };
 
-    // Filter by status AND search query
-    const approvedMerchants = merchants.filter(m => {
-        const isApproved = m.status === 'Approved';
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = !searchQuery ||
-            (m.name && m.name.toLowerCase().includes(query)) ||
-            (m.phone && m.phone.includes(query)) ||
-            (m.phoneNumber && m.phoneNumber.includes(query)) || // Handle potential different key
-            (m.shopName && m.shopName.toLowerCase().includes(query)); // Handle potential shop name key
+    const handleLoadMore = () => {
+        if (loadingMore || displayedMerchants.length >= approvedMerchants.length) return;
 
-        return isApproved && matchesSearch;
-    });
+        setLoadingMore(true);
+        // Simulate network delay for "Instagram-like" feel
+        setTimeout(() => {
+            const nextPage = page + 1;
+            const newBatch = approvedMerchants.slice(0, nextPage * BATCH_SIZE);
+            setDisplayedMerchants(newBatch);
+            setPage(nextPage);
+            setLoadingMore(false);
+        }, 1500);
+    };
 
-    if (loading && approvedMerchants.length === 0 && !searchQuery) {
+    if (loading && merchants.length === 0) {
         return (
             <View style={styles.container}>
                 <View style={styles.headerContainer}>
                     <Text style={styles.sectionTitle}>Available Merchants</Text>
-                    <Text style={styles.sectionSubtitle}>{approvedMerchants.length} merchants nearby</Text>
+                    <Text style={styles.sectionSubtitle}>Loading merchants nearby...</Text>
                 </View>
                 <View style={styles.skeletonList}>
-                    {[1, 2, 3, 4, 5].map(i => (
+                    {[1, 2, 3, 4].map(i => (
                         <View key={i} style={styles.skeletonCard}>
                             <SkeletonItem width={64} height={64} borderRadius={12} style={{ marginRight: 16 }} />
                             <View style={{ flex: 1 }}>
@@ -138,6 +165,16 @@ const MerchantsTab = ({ merchants, refreshing,
         </TouchableOpacity>
     );
 
+    const renderFooter = () => {
+        if (!loadingMore) return <View style={{ height: 50 }} />;
+        return (
+            <View style={styles.loaderContainer}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                {/* <Text style={styles.loadingText}>Loading more merchants...</Text> */}
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.headerContainer}>
@@ -191,7 +228,7 @@ const MerchantsTab = ({ merchants, refreshing,
                 )}
             </View>
 
-            {approvedMerchants.length === 0 ? (
+            {approvedMerchants.length === 0 && !loading ? (
                 <View style={styles.emptyState}>
                     <View style={styles.emptyIcon}>
                         <Icon name="search" size={40} color={COLORS.light} />
@@ -203,29 +240,22 @@ const MerchantsTab = ({ merchants, refreshing,
                 </View>
             ) : (
                 <FlatList
-                    data={approvedMerchants}
+                    data={displayedMerchants}
                     keyExtractor={(item) => item._id}
                     renderItem={renderMerchantCard}
                     contentContainerStyle={styles.listContent}
-                    onEndReached={onLoadMore}
-                    onEndReachedThreshold={0.3}
+                    onEndReached={handleLoadMore}
+                    onEndReachedThreshold={0.5}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            colors={[COLORS.primary]}     // Android
-                            tintColor={COLORS.primary}    // iOS
+                            colors={[COLORS.primary]}
+                            tintColor={COLORS.primary}
                         />
                     }
-                    ListFooterComponent={
-                        loading && merchants.length > 0 ? (
-                            <View style={styles.loaderContainer}>
-                                <ActivityIndicator size="small" color={COLORS.primary} />
-                                <Text style={styles.loadingText}>Loading more merchants...</Text>
-                            </View>
-                        ) : null
-                    }
+                    ListFooterComponent={renderFooter}
                 />
             )}
             <LinearGradient
@@ -287,7 +317,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 15,
         height: 45,
-        // marginTop: 5, // Removed, handled by parent spacing or animations
         borderWidth: 1,
         borderColor: '#E1E4E8'
     },

@@ -396,7 +396,7 @@ const MerchantDashboardScreen = ({ user, onLogout, onUserUpdate, pauseAds, resum
             const options = {
                 description: `Upgrade to Premium Plan (${billingCycle})`,
                 currency: order.currency || 'INR',
-                key: keyId || 'rzp_test_S6RoMCiZCpsLo7', // Fallback key if server doesn't send one
+                key: keyId || process.env.RAZORPAY_KEY_ID, // Fallback key if server doesn't send one
                 amount: order.amount, // Amount in paise
                 name: 'AURUM',
                 order_id: order.id,

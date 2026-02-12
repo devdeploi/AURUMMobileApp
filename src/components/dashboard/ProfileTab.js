@@ -116,6 +116,36 @@ const ProfileTab = ({ user, onUpdate, onUpdateImage, onLogout, onRefresh }) => {
                     </View>
                 </View>
 
+                {/* Profile Completion Progress */}
+                {(() => {
+                    let completed = 0;
+                    const total = 4;
+                    if (user.name && user.name !== 'New User') completed++;
+                    if (user.email) completed++;
+                    if (user.phone) completed++;
+                    if (user.address) completed++;
+
+                    const progress = completed / total;
+                    const percent = Math.round(progress * 100);
+
+                    return (
+                        <View style={styles.progressCard}>
+                            <View style={styles.progressHeader}>
+                                <Text style={styles.progressTitle}>Profile Completion</Text>
+                                <Text style={styles.progressPercent}>{percent}%</Text>
+                            </View>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+                            </View>
+                            {percent < 100 && (
+                                <Text style={styles.progressNote}>
+                                    Complete your profile to unlock chit plan subscriptions.
+                                </Text>
+                            )}
+                        </View>
+                    );
+                })()}
+
                 {/* Profile Card */}
                 <View style={styles.profileCard}>
                     {/* Avatar Section */}
@@ -703,6 +733,51 @@ const styles = StyleSheet.create({
         height: 40,
         zIndex: 20,
     },
+    // Progress Bar Styles
+    progressCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: COLORS.dark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
+    progressHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    progressTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.dark,
+    },
+    progressPercent: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+    },
+    progressBarBg: {
+        height: 8,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 8,
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: COLORS.primary,
+        borderRadius: 4,
+    },
+    progressNote: {
+        fontSize: 12,
+        color: COLORS.secondary,
+        fontStyle: 'italic',
+    }
 });
 
 export default ProfileTab;

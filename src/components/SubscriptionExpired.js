@@ -84,7 +84,7 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
             const options = {
                 description: `Renew ${selectedPlan} Plan (${billingCycle})`,
                 currency: order.currency,
-                key: keyId || 'rzp_test_S6RoMCiZCpsLo7',
+                key: keyId || process.env.RAZORPAY_KEY_ID,
                 amount: order.amount,
                 name: 'AURUM',
                 order_id: order.id,
@@ -147,9 +147,9 @@ const SubscriptionExpired = ({ user, onRenew, existingPlanCount, plans, onRefres
     // Helper to get price display
     const getPrice = (plan) => {
         let basePrice = 0;
-        if (plan === 'Basic') basePrice = 1770; // 1500 + 18%
-        else if (plan === 'Standard') basePrice = 2950; // 2500 + 18%
-        else if (plan === 'Premium') basePrice = 4130; // 3500 + 18%
+        if (plan === 'Basic') basePrice = 1500; // Base Price
+        else if (plan === 'Standard') basePrice = 2500; // Base Price
+        else if (plan === 'Premium') basePrice = 3500; // Base Price
 
         if (billingCycle === 'yearly') {
             return `₹${(basePrice * 10).toLocaleString()}`;

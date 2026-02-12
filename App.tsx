@@ -87,15 +87,15 @@ function App() {
   // Merchant Brand Ad Interval Logic
   const hasInitialAdRun = React.useRef(false);
   console.log(user);
-  
+
 
   React.useEffect(() => {
     let adInterval: any;
     let initialTimeout: any;
 
     if (user?.role === 'merchant' && !areAdsPaused) {
-      // Use selected frequency or fallback to 15 minutes
-      const frequencyMinutes = (user as any)?.adFrequency || 15;
+      // Enforce 15 minutes by default
+      const frequencyMinutes = 15;
       const frequencyMs = frequencyMinutes * 60 * 1000;
 
       // Trigger brand ad based on frequency

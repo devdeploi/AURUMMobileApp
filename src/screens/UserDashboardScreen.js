@@ -174,7 +174,11 @@ const UserDashboardScreen = ({ user: initialUser, onLogout, onSelectMerchant, on
                 headers: { Authorization: `Bearer ${user.token}` }
             };
             const { data } = await axios.put(`${APIURL}/users/${userId}`, updatedData, config);
-            setUser({ ...user, ...data });
+            const updatedUser = { ...user, ...data };
+            setUser(updatedUser);
+            if (onUserUpdate) {
+                onUserUpdate(updatedUser);
+            }
             setAlertConfig({ visible: true, title: 'Success', message: 'Profile updated successfully', type: 'success' });
         } catch (error) {
             console.error(error);

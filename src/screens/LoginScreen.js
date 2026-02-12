@@ -196,6 +196,17 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 });
                 console.log('Merchant Login Success:', data);
 
+                if (Platform.OS === 'ios' && !data.otpSent && data.plan !== 'Premium') {
+                    setAlertConfig({
+                        visible: true,
+                        title: 'Access Restricted',
+                        message: 'iOS access is available only for Premium plan merchants.',
+                        type: 'warning'
+                    });
+                    setIsLoading(false);
+                    return;
+                }
+
                 if (data.otpSent) {
                     setMerchantLoginStep(2);
                     setAlertConfig({ visible: true, title: 'OTP Sent', message: `Verification code sent to ${email} `, type: 'success' });
@@ -233,7 +244,7 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
             console.log('Send Login OTP Success:', response.data);
             setMerchantLoginStep(2); // Move to OTP entry
             setResendTimer(60);
-            setAlertConfig({ visible: true, title: 'Success', message: 'OTP Sent successfully', type: 'success' });
+            setAlertConfig({ visible: true, title: 'Success', message: response.data.message || 'OTP Sent successfully', type: 'success' });
         } catch (error) {
             console.log('Send Login OTP Error:', error.response?.data || error.message);
             const msg = error.response?.data?.message || 'Failed to send OTP. Check if registered.';
@@ -257,6 +268,18 @@ const LoginScreen = ({ onLogin, onRegisterClick }) => {
                 platform: Platform.OS
             });
             console.log('Verify Merchant OTP Success:', data);
+
+            if (Platform.OS === 'ios' && data.plan !== 'Premium') {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Access Restricted',
+                    message: 'iOS access is available only for Premium plan merchants.',
+                    type: 'warning'
+                });
+                setIsLoading(false);
+                return;
+            }
+
             await FCMService.registerToken(data._id, data.role, data.token);
             FCMService.displayLocalNotification('OTP Verified', 'Merchant login successful.');
             onLogin(data.role, data);

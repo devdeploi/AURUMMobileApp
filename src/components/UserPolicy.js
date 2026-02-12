@@ -1,48 +1,103 @@
 
 import React from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { COLORS } from '../styles/theme';
 
-const UserPolicy = ({ visible, onClose }) => {
+const { height } = Dimensions.get('window');
+
+const UserPolicy = ({ visible, onClose, onAccept }) => {
     return (
         <Modal
-            animationType="slide"
+            animationType="fade"
             transparent={true}
             visible={visible}
             onRequestClose={onClose}
         >
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
+                    {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.title}>User Policy</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Icon name="times" size={20} color={COLORS.textPrimary} />
+                        <View style={styles.headerIconContainer}>
+                            <Icon name="user-shield" size={20} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.title}>Data & Privacy Policy</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Icon name="times" size={20} color="#718096" />
                         </TouchableOpacity>
                     </View>
-                    <ScrollView contentContainerStyle={styles.content}>
-                        <Text style={styles.text}>
-                            Your privacy and security are important to us. This policy outlines how we handle your data and your responsibilities as a user.
-                        </Text>
 
-                        <Text style={styles.heading}>1. Data Usage</Text>
-                        <Text style={styles.text}>
-                            We collect basic information to provide our services. We do not sell your personal data to third parties.
-                        </Text>
+                    {/* Content */}
+                    <ScrollView
+                        contentContainerStyle={styles.content}
+                        showsVerticalScrollIndicator={false}
+                        bounces={false}
+                    >
+                        <Text style={styles.lastUpdated}>Last Updated: Feb 2026</Text>
 
-                        <Text style={styles.heading}>2. Platform Liability Disclaimer</Text>
-                        <Text style={styles.warningText}>
-                            AURUM operates as a facilitator. We explicitly state that user risks and instances of fraud are not the responsibility of our platform. Users engage with merchants and other entities at their own risk. We strongly advise conducting due diligence before any financial transaction.
-                        </Text>
+                        <View style={styles.introBox}>
+                            <Text style={styles.introText}>
+                                Your privacy is paramount. We believe in transparency and securing your data at every step.
+                            </Text>
+                        </View>
 
-                        <Text style={styles.heading}>3. Code of Conduct</Text>
-                        <Text style={styles.text}>
-                            Users are expected to behave lawfully and respectfully. Harassment, fraud, or misuse of the platform will result in immediate termination of services.
-                        </Text>
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>1. Data Collection & Usage</Text>
+                            <View style={styles.card}>
+                                <Text style={styles.cardText}>
+                                    We collect only essential data to provide our services. Your data is used for transaction processing and account management.
+                                </Text>
+                                <View style={styles.tagContainer}>
+                                    <View style={styles.tag}>
+                                        <Icon name="lock" size={10} color={COLORS.primary} style={{ marginRight: 4 }} />
+                                        <Text style={styles.tagText}>Encrypted</Text>
+                                    </View>
+                                    <View style={styles.tag}>
+                                        <Icon name="user-secret" size={10} color={COLORS.primary} style={{ marginRight: 4 }} />
+                                        <Text style={styles.tagText}>Private</Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.cardText, { marginTop: 10, fontWeight: '600', color: COLORS.primary }]}>
+                                    We NEVER sell your personal data to third parties.
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>2. Platform Role</Text>
+                            <View style={[styles.card, styles.infoCard]}>
+                                <View style={styles.infoHeader}>
+                                    <Icon name="info-circle" size={16} color="#2B6CB0" />
+                                    <Text style={styles.infoTitle}>Facilitator Only</Text>
+                                </View>
+                                <Text style={styles.infoText}>
+                                    AURUM connects you with merchants. We are not a bank or financial institution. Risks associated with merchants are your responsibility.
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>3. Code of Conduct</Text>
+                            <View style={styles.bulletPoint}>
+                                <Icon name="check-circle" size={12} color={COLORS.success} style={{ marginTop: 4, marginRight: 8 }} />
+                                <Text style={styles.bulletText}>Act lawfully and respectfully.</Text>
+                            </View>
+                            <View style={[styles.bulletPoint, { marginTop: 8 }]}>
+                                <Icon name="ban" size={12} color={COLORS.danger} style={{ marginTop: 4, marginRight: 8 }} />
+                                <Text style={styles.bulletText}>Fraud or harassment leads to immediate ban.</Text>
+                            </View>
+                        </View>
+
+                        <View style={{ height: 40 }} />
                     </ScrollView>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <Text style={styles.closeButtonText}>I Understand</Text>
-                    </TouchableOpacity>
+
+                    {/* Footer */}
+                    <View style={styles.footer}>
+                        <TouchableOpacity style={styles.acceptButton} onPress={onAccept || onClose} activeOpacity={0.8}>
+                            <Text style={styles.acceptButtonText}>I Understand & Accept</Text>
+                            <Icon name="check" size={16} color="#fff" style={{ marginLeft: 8 }} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </Modal>
@@ -52,66 +107,173 @@ const UserPolicy = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'center',
+        alignItems: 'center',
         padding: 20
     },
     modalContainer: {
         backgroundColor: '#fff',
-        borderRadius: 15,
-        maxHeight: '80%',
-        width: '100%'
+        borderRadius: 24,
+        width: '100%',
+        maxHeight: height * 0.8,
+        maxWidth: 400,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
+        overflow: 'hidden'
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 15,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
+        backgroundColor: '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: '#eee'
+        borderBottomColor: '#F7FAFC'
+    },
+    headerIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: '#EBF8FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12
     },
     title: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: COLORS.primary
-    },
-    content: {
-        padding: 20
-    },
-    heading: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.textPrimary,
-        marginTop: 15,
-        marginBottom: 8
-    },
-    text: {
-        fontSize: 14,
-        color: '#555',
-        lineHeight: 20,
-        marginBottom: 10
-    },
-    warningText: {
-        fontSize: 14,
-        color: '#D32F2F', // Red for warning
-        lineHeight: 20,
-        marginBottom: 10,
-        fontWeight: '500',
-        backgroundColor: '#FFEBEE',
-        padding: 10,
-        borderRadius: 8
+        color: '#1A202C',
+        flex: 1
     },
     closeButton: {
-        backgroundColor: COLORS.primary,
-        padding: 15,
-        alignItems: 'center',
-        borderBottomLeftRadius: 15,
-        borderBottomRightRadius: 15
+        padding: 4,
+        backgroundColor: '#F7FAFC',
+        borderRadius: 20
     },
-    closeButtonText: {
+    content: {
+        paddingHorizontal: 24,
+        paddingTop: 16,
+    },
+    lastUpdated: {
+        fontSize: 12,
+        color: '#A0AEC0',
+        marginBottom: 16,
+        textAlign: 'right'
+    },
+    introBox: {
+        marginBottom: 24,
+        padding: 16,
+        backgroundColor: '#F0FFF4',
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: '#48BB78'
+    },
+    introText: {
+        fontSize: 14,
+        color: '#2F855A',
+        lineHeight: 22,
+        fontStyle: 'italic',
+        fontWeight: '500'
+    },
+    section: {
+        marginBottom: 24
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#2D3748',
+        marginBottom: 12,
+        letterSpacing: 0.3
+    },
+    card: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#EDF2F7'
+    },
+    cardText: {
+        fontSize: 14,
+        color: '#4A5568',
+        lineHeight: 22
+    },
+    tagContainer: {
+        flexDirection: 'row',
+        marginTop: 12,
+        gap: 8
+    },
+    tag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(214, 158, 46, 0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8
+    },
+    tagText: {
+        fontSize: 11,
+        color: COLORS.primary,
+        fontWeight: '600'
+    },
+    infoCard: {
+        backgroundColor: '#EBF8FF', // Light blue
+        borderColor: '#BEE3F8'
+    },
+    infoHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8
+    },
+    infoTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#2B6CB0',
+        marginLeft: 8
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#2C5282',
+        lineHeight: 20
+    },
+    bulletPoint: {
+        flexDirection: 'row',
+        alignItems: 'flex-start'
+    },
+    bulletText: {
+        fontSize: 14,
+        color: '#4A5568',
+        lineHeight: 20,
+        flex: 1
+    },
+    footer: {
+        padding: 24,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#F7FAFC'
+    },
+    acceptButton: {
+        backgroundColor: COLORS.primary,
+        borderRadius: 16,
+        paddingVertical: 16,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 6
+    },
+    acceptButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: 0.5
     }
 });
 

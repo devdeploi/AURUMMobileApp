@@ -17,7 +17,8 @@ import {
     RefreshControl,
     LayoutAnimation,
     UIManager,
-    Modal
+    Modal,
+    FlatList
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +33,7 @@ import FCMService from '../services/FCMService';
 import { SkeletonItem } from '../components/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
+const BATCH_SIZE = 5;
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -42,7 +44,13 @@ if (Platform.OS === 'android') {
 const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState('plans');
-    const [plans, setPlans] = useState([]);
+
+    // Pagination State
+    const [allPlans, setAllPlans] = useState([]);
+    const [displayedPlans, setDisplayedPlans] = useState([]);
+    const [page, setPage] = useState(1);
+    const [loadingMore, setLoadingMore] = useState(false);
+
     const [loadingPlans, setLoadingPlans] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [subscribing, setSubscribing] = useState(null);
@@ -85,7 +93,10 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
     const fetchPlans = async () => {
         try {
             const { data } = await axios.get(`${APIURL}/chit-plans/merchant/${merchant._id}`);
-            setPlans(data.plans || []);
+            const fetchedPlans = data.plans || [];
+            setAllPlans(fetchedPlans);
+            setDisplayedPlans(fetchedPlans.slice(0, BATCH_SIZE));
+            setPage(1);
         } catch (error) {
             console.error(error);
             setAlertConfig({ visible: true, title: 'Error', message: 'Failed to load chit plans', type: 'error' });
@@ -101,6 +112,20 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         fetchMySubscriptions();
     };
 
+    const handleLoadMore = () => {
+        if (loadingMore || displayedPlans.length >= allPlans.length) return;
+        setLoadingMore(true);
+
+        // Simulate delay for smooth UI
+        setTimeout(() => {
+            const nextPage = page + 1;
+            const newBatch = allPlans.slice(0, nextPage * BATCH_SIZE);
+            setDisplayedPlans(newBatch);
+            setPage(nextPage);
+            setLoadingMore(false);
+        }, 1000);
+    };
+
     const handleTabPress = (tab) => {
         if (activeTab !== tab) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -114,6 +139,17 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
     };
 
     const handleSubscribe = async (plan) => {
+        // Check Profile Completion
+        if (!user || !user.name || user.name === 'New User' || !user.phone || !user.address) {
+            setAlertConfig({
+                visible: true,
+                title: 'Incomplete Profile',
+                message: 'Please complete your profile (Name, Phone, Address) in the Profile tab before subscribing.',
+                type: 'warning'
+            });
+            return;
+        }
+
         setAlertConfig({
             visible: true,
             title: 'Confirm Subscription',
@@ -151,9 +187,8 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                             setTimeout(() => {
                                 const options = {
                                     description: `Subscription to ${plan.planName}`,
-                                    image: merchant.shopLogo ? `${BASE_URL}${merchant.shopLogo}` : undefined,
                                     currency: 'INR',
-                                    key: 'rzp_test_S6RoMCiZCpsLo7',
+                                    key: process.env.RAZORPAY_KEY_ID,
                                     amount: Number(order.amount),
                                     name: 'Aurum',
                                     order_id: order.id,
@@ -263,6 +298,73 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         </View>
     );
 
+    const renderFooter = () => {
+        if (!loadingMore) return <View style={{ height: 50 }} />;
+        return (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                {/* <Text style={{ marginTop: 8, color: COLORS.secondary, fontSize: 12 }}>Loading more plans...</Text> */}
+            </View>
+        );
+    };
+
+    const renderPlanItem = ({ item: plan }) => {
+        const isSubscribed = subscribedPlanIds.includes(plan._id);
+
+        return (
+            <View style={styles.planCard}>
+                <View style={styles.planHeader}>
+                    <Text style={styles.planName}>{plan.planName}</Text>
+                    <View style={[styles.badge, { backgroundColor: plan.returnType === 'Gold' ? '#FFF9C4' : '#C6F6D5' }]}>
+                        <Text style={[styles.badgeText, { color: plan.returnType === 'Gold' ? '#FBC02D' : '#38A169' }]}>
+                            {plan.returnType || 'Cash'}
+                        </Text>
+                    </View>
+                </View>
+
+                <Text style={styles.amountLabel}>Total Amount</Text>
+                <Text style={styles.amountValue}>₹{plan.totalAmount}</Text>
+
+                <View style={styles.planDetails}>
+                    <View style={styles.detailItem}>
+                        <Icon name="clock" size={14} color={COLORS.secondary} />
+                        <Text style={styles.detailText}>{plan.durationMonths} Months</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                        <Icon name="calendar-alt" size={14} color={COLORS.secondary} />
+                        <Text style={styles.detailText}>₹{plan.monthlyAmount}/mo</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    style={styles.detailsButton}
+                    onPress={() => openPlanDetails(plan)}
+                >
+                    <Text style={styles.detailsButtonText}>View Chit Details</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.subscribeButton,
+                        isSubscribed && styles.subscribedButton
+                    ]}
+                    onPress={() => handleSubscribe(plan)}
+                    disabled={subscribing === plan._id || isSubscribed}
+                >
+                    {subscribing === plan._id ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={styles.subscribeText}>
+                                {isSubscribed ? 'Subscribed' : 'Subscribe Now + (2% fee)'}
+                            </Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     const renderPlans = () => {
         if (loadingPlans) {
             return (
@@ -283,7 +385,7 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
             );
         }
 
-        if (plans.length === 0) {
+        if (allPlans.length === 0) {
             return (
                 <View style={styles.centerContainer}>
                     <Text style={{ fontSize: 16, color: COLORS.secondary }}>No chit plans available for this merchant.</Text>
@@ -292,64 +394,17 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
         }
 
         return (
-            <View style={styles.plansList}>
-                {plans.map(plan => {
-                    const isSubscribed = subscribedPlanIds.includes(plan._id);
-
-                    return (
-                        <View key={plan._id} style={styles.planCard}>
-                            <View style={styles.planHeader}>
-                                <Text style={styles.planName}>{plan.planName}</Text>
-                                <View style={[styles.badge, { backgroundColor: plan.returnType === 'Gold' ? '#FFF9C4' : '#C6F6D5' }]}>
-                                    <Text style={[styles.badgeText, { color: plan.returnType === 'Gold' ? '#FBC02D' : '#38A169' }]}>
-                                        {plan.returnType || 'Cash'}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <Text style={styles.amountLabel}>Total Amount</Text>
-                            <Text style={styles.amountValue}>₹{plan.totalAmount}</Text>
-
-                            <View style={styles.planDetails}>
-                                <View style={styles.detailItem}>
-                                    <Icon name="clock" size={14} color={COLORS.secondary} />
-                                    <Text style={styles.detailText}>{plan.durationMonths} Months</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Icon name="calendar-alt" size={14} color={COLORS.secondary} />
-                                    <Text style={styles.detailText}>₹{plan.monthlyAmount}/mo</Text>
-                                </View>
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.detailsButton}
-                                onPress={() => openPlanDetails(plan)}
-                            >
-                                <Text style={styles.detailsButtonText}>View Chit Details</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.subscribeButton,
-                                    isSubscribed && styles.subscribedButton
-                                ]}
-                                onPress={() => handleSubscribe(plan)}
-                                disabled={subscribing === plan._id || isSubscribed}
-                            >
-                                {subscribing === plan._id ? (
-                                    <ActivityIndicator color="#fff" size="small" />
-                                ) : (
-                                    <View style={{ alignItems: 'center' }}>
-                                        <Text style={styles.subscribeText}>
-                                            {isSubscribed ? 'Subscribed' : 'Subscribe Now + (2% fee)'}
-                                        </Text>
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    );
-                })}
-            </View>
+            <FlatList
+                data={displayedPlans}
+                renderItem={renderPlanItem}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={styles.plansList}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={renderFooter}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                showsVerticalScrollIndicator={false}
+            />
         );
     };
 
@@ -485,14 +540,18 @@ const MerchantDetailsScreen = ({ merchant, onBack, user }) => {
                 {renderHeader()}
                 {renderTabs()}
 
-                <ScrollView
-                    style={styles.content}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                    }
-                >
-                    {activeTab === 'plans' ? renderPlans() : renderAbout()}
-                </ScrollView>
+                {activeTab === 'plans' ? (
+                    renderPlans()
+                ) : (
+                    <ScrollView
+                        style={styles.content}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        }
+                    >
+                        {renderAbout()}
+                    </ScrollView>
+                )}
             </SafeAreaView>
             {/* Plan Details Modal */}
             <Modal

@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, Modal, TextInput, Image, Alert, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Modal, TextInput, Image, Alert, Platform, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -13,10 +13,16 @@ import SkeletonLoader from '../SkeletonLoader';
 
 import CustomAlert from '../CustomAlert';
 
+const ITEMS_PER_PAGE = 10;
+
 const AnalyticsTab = ({ user }) => {
     const [loading, setLoading] = useState(true);
-    const [plans, setPlans] = useState([]);
+    const [allPlans, setAllPlans] = useState([]); // Stores all fetched plans
+    const [displayedPlans, setDisplayedPlans] = useState([]); // Stores currently visible plans
+    const [page, setPage] = useState(1);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+
     const [payingId, setPayingId] = useState(null);
     const [expandedHistoryId, setExpandedHistoryId] = useState(null);
     const [expandedCardId, setExpandedCardId] = useState(null); // Track which card is expanded
@@ -57,13 +63,17 @@ const AnalyticsTab = ({ user }) => {
         setAlertConfig({ ...alertConfig, visible: false });
     };
 
-    const fetchMyPlans = React.useCallback(async () => {
+    const fetchMyPlans = useCallback(async () => {
         try {
             const config = {
                 headers: { Authorization: `Bearer ${user.token}` }
             };
             const { data } = await axios.get(`${APIURL}/chit-plans/my-plans`, config);
-            setPlans(data);
+
+            // Initialize Pagination
+            setAllPlans(data);
+            setDisplayedPlans(data.slice(0, ITEMS_PER_PAGE));
+            setPage(1);
 
         } catch (error) {
             console.error('Failed to fetch my plans', error);
@@ -72,8 +82,6 @@ const AnalyticsTab = ({ user }) => {
             setRefreshing(false);
         }
     }, [user]);
-    console.log(plans);
-
 
     useEffect(() => {
         if (user && user.token) {
@@ -84,6 +92,20 @@ const AnalyticsTab = ({ user }) => {
     const onRefresh = () => {
         setRefreshing(true);
         fetchMyPlans();
+    };
+
+    const handleLoadMore = () => {
+        if (loadingMore || displayedPlans.length >= allPlans.length) return;
+
+        setLoadingMore(true);
+        // Simulate network delay for "Instagram-like" feel
+        setTimeout(() => {
+            const nextPage = page + 1;
+            const newPlans = allPlans.slice(0, nextPage * ITEMS_PER_PAGE);
+            setDisplayedPlans(newPlans);
+            setPage(nextPage);
+            setLoadingMore(false);
+        }, 1500);
     };
 
     // --- Offline Payment Handlers ---
@@ -217,7 +239,6 @@ const AnalyticsTab = ({ user }) => {
 
     const handlePayInstallment = async (plan) => {
         setPayingId(plan._id);
-        console.log(plan);
 
         try {
             const config = {
@@ -237,7 +258,7 @@ const AnalyticsTab = ({ user }) => {
                 description: `Installment for ${plan.planName}`,
                 image: plan.merchant?.shopLogo ? `${BASE_URL}${plan.merchant.shopLogo}` : undefined,
                 currency: 'INR',
-                key: 'rzp_test_S6RoMCiZCpsLo7', // Replace with valid env key if available
+                key: process.env.RAZORPAY_KEY_ID,
                 amount: order.amount,
                 name: 'Aurum',
                 order_id: order.id,
@@ -279,454 +300,475 @@ const AnalyticsTab = ({ user }) => {
         }
     };
 
+    const renderPlanItem = ({ item: plan }) => {
+        let dueDate = null;
+        let isPayable = false;
+        let diffDays = 100; // Default large
+        const isPlanFullyPaid = plan.installmentsPaid >= plan.durationMonths;
 
-    return (
-        <View style={styles.wrapper}>
-            <ScrollView
-                contentContainerStyle={styles.content}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        // Parse Due Date
+        if (plan.nextDueDate) {
+            dueDate = new Date(plan.nextDueDate);
+            const now = new Date();
+            const timeDiff = dueDate.getTime() - now.getTime();
+            diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            // Determine if payable (Only if current month has reached or passed due month)
+            if (plan.status === 'active' && !isPlanFullyPaid) {
+                isPayable = true;
+            }
+        }
+
+        const isExpanded = expandedCardId === plan._id;
+
+        return (
+            <TouchableOpacity
+                style={styles.planCard}
+                onPress={() => setExpandedCardId(isExpanded ? null : plan._id)}
+                activeOpacity={0.7}
             >
-                <View style={styles.header}>
-                    <Text style={styles.sectionTitle}>My Subscriptions</Text>
-                    <Text style={styles.sectionSubtitle}>Track your gold savings progress</Text>
+                {/* Always Visible Header */}
+                <View style={styles.planHeader}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.planName}>{plan.planName}</Text>
+                        <View style={styles.merchantRow}>
+                            <Icon name="store" size={10} color={COLORS.secondary} />
+                            <Text style={styles.merchantName}>{plan.merchant?.name}</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: plan.status === 'active' ? '#E8F5E9' : '#eee' }]}>
+                        <Text style={[styles.statusText, { color: plan.status === 'active' ? '#2E7D32' : '#666' }]}>
+                            {plan.status ? plan.status.toUpperCase() : 'UNKNOWN'}
+                        </Text>
+                    </View>
                 </View>
 
-                {loading ? (
-                    <SkeletonLoader />
-                ) : plans.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Icon name="box-open" size={40} color={COLORS.secondary} />
-                        <Text style={styles.emptyText}>You haven't subscribed to any plans yet.</Text>
+                {/* Compact Progress Bar - Always Visible */}
+                <View style={styles.compactProgress}>
+                    <View style={styles.progressBarBg}>
+                        <View
+                            style={[
+                                styles.progressBarFill,
+                                { width: `${(plan.installmentsPaid / plan.durationMonths) * 100}%` }
+                            ]}
+                        />
                     </View>
-                ) : (
-                    <View style={styles.plansContainer}>
-                        {plans.map((plan) => {
-                            let dueDate = null;
-                            let isPayable = false;
-                            let diffDays = 100; // Default large
-                            const isPlanFullyPaid = plan.installmentsPaid >= plan.durationMonths;
+                    <View style={styles.compactStats}>
+                        <Text style={styles.compactStatText}>
+                            ₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0} saved
+                        </Text>
+                        <Text style={styles.compactStatText}>
+                            {plan.installmentsPaid}/{plan.durationMonths} months
+                        </Text>
+                    </View>
+                </View>
 
-                            // Parse Due Date
-                            if (plan.nextDueDate) {
-                                dueDate = new Date(plan.nextDueDate);
-                                const now = new Date();
-                                const timeDiff = dueDate.getTime() - now.getTime();
-                                diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                {/* Expand/Collapse Indicator */}
+                <View style={styles.expandIndicator}>
+                    <Text style={styles.expandText}>
+                        {isExpanded ? 'Tap to collapse' : 'Tap to expand'}
+                    </Text>
+                    <Icon
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={10}
+                        color={COLORS.primary}
+                    />
+                </View>
 
-                                // Determine if payable (Only if current month has reached or passed due month)
-                                if (plan.status === 'active' && !isPlanFullyPaid) {
-                                    isPayable = true;
-                                }
-                            }
+                {/* Expanded Content */}
+                {isExpanded && (
+                    <>
+                        <View style={styles.divider} />
 
-                            const isExpanded = expandedCardId === plan._id;
+                        <View style={styles.statsGrid}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Total Saved</Text>
+                                <Text style={styles.statValue}>₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Next Due</Text>
+                                <Text style={[styles.statValue, diffDays <= 3 && { color: COLORS.error }]}>
+                                    {isPlanFullyPaid ? 'Completed' : (dueDate && !isNaN(dueDate.getTime())
+                                        ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
+                                        : 'Due Now')}
+                                </Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Remaining</Text>
+                                <Text style={styles.statValue}>{plan.remainingMonths} Months</Text>
+                            </View>
+                        </View>
 
-                            return (
-                                <TouchableOpacity
-                                    key={plan._id}
-                                    style={styles.planCard}
-                                    onPress={() => setExpandedCardId(isExpanded ? null : plan._id)}
-                                    activeOpacity={0.7}
-                                >
-                                    {/* Always Visible Header */}
-                                    <View style={styles.planHeader}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.planName}>{plan.planName}</Text>
-                                            <View style={styles.merchantRow}>
-                                                <Icon name="store" size={10} color={COLORS.secondary} />
-                                                <Text style={styles.merchantName}>{plan.merchant?.name}</Text>
-                                            </View>
+                        {/* Payment Buttons */}
+                        <View style={{ gap: 10 }}>
+                            {/* Withdrawal / Settlement Actions */}
+                            {(plan.status === 'completed' || plan.status === 'requested_withdrawal' || (plan.status === 'active' && isPlanFullyPaid)) && (
+                                <View>
+                                    {plan.status === 'requested_withdrawal' ? (
+                                        <View style={[styles.payButton1, { backgroundColor: '#FF9800' }]}>
+                                            <Text style={styles.payButtonText}>Withdrawal Requested - Pending</Text>
                                         </View>
-                                        <View style={[styles.statusBadge, { backgroundColor: plan.status === 'active' ? '#E8F5E9' : '#eee' }]}>
-                                            <Text style={[styles.statusText, { color: plan.status === 'active' ? '#2E7D32' : '#666' }]}>
-                                                {plan.status ? plan.status.toUpperCase() : 'UNKNOWN'}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Compact Progress Bar - Always Visible */}
-                                    <View style={styles.compactProgress}>
-                                        <View style={styles.progressBarBg}>
-                                            <View
-                                                style={[
-                                                    styles.progressBarFill,
-                                                    { width: `${(plan.installmentsPaid / plan.durationMonths) * 100}%` }
-                                                ]}
-                                            />
-                                        </View>
-                                        <View style={styles.compactStats}>
-                                            <Text style={styles.compactStatText}>
-                                                ₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0} saved
-                                            </Text>
-                                            <Text style={styles.compactStatText}>
-                                                {plan.installmentsPaid}/{plan.durationMonths} months
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Expand/Collapse Indicator */}
-                                    <View style={styles.expandIndicator}>
-                                        <Text style={styles.expandText}>
-                                            {isExpanded ? 'Tap to collapse' : 'Tap to expand'}
-                                        </Text>
-                                        <Icon
-                                            name={isExpanded ? "chevron-up" : "chevron-down"}
-                                            size={10}
-                                            color={COLORS.primary}
-                                        />
-                                    </View>
-
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                        <>
-                                            <View style={styles.divider} />
-
-                                            <View style={styles.statsGrid}>
-                                                <View style={styles.statItem}>
-                                                    <Text style={styles.statLabel}>Total Saved</Text>
-                                                    <Text style={styles.statValue}>₹{plan.totalSaved ? plan.totalSaved.toLocaleString() : 0}</Text>
-                                                </View>
-                                                <View style={styles.statItem}>
-                                                    <Text style={styles.statLabel}>Next Due</Text>
-                                                    <Text style={[styles.statValue, diffDays <= 3 && { color: COLORS.error }]}>
-                                                        {isPlanFullyPaid ? 'Completed' : (dueDate && !isNaN(dueDate.getTime())
-                                                            ? dueDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
-                                                            : 'Due Now')}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.statItem}>
-                                                    <Text style={styles.statLabel}>Remaining</Text>
-                                                    <Text style={styles.statValue}>{plan.remainingMonths} Months</Text>
-                                                </View>
-                                            </View>
-
-                                            {/* Payment Buttons */}
-                                            <View style={{ gap: 10 }}>
-                                                {/* Withdrawal / Settlement Actions */}
-                                                {(plan.status === 'completed' || plan.status === 'requested_withdrawal' || (plan.status === 'active' && isPlanFullyPaid)) && (
-                                                    <View>
-                                                        {plan.status === 'requested_withdrawal' ? (
-                                                            <View style={[styles.payButton1, { backgroundColor: '#FF9800' }]}>
-                                                                <Text style={styles.payButtonText}>Withdrawal Requested - Pending</Text>
-                                                            </View>
-                                                        ) : (
-                                                            plan.returnType === 'Cash' ? (
-                                                                <TouchableOpacity
-                                                                    style={[styles.payButton1, { backgroundColor: COLORS.success }]}
-                                                                    onPress={() => openWithdrawalModal(plan)}
-                                                                >
-                                                                    <Text style={styles.payButtonText}>Request Withdrawal / Settlement</Text>
-                                                                </TouchableOpacity>
-                                                            ) : null
-                                                        )}
-                                                    </View>
-                                                )}
-
-                                                {plan.status === 'settled' && (
-                                                    <View style={{ backgroundColor: '#F0FFF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#C6F6D5' }}>
-                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                                            <Icon name="check-circle" size={16} color="#38A169" />
-                                                            <Text style={{ marginLeft: 6, fontWeight: 'bold', color: '#2F855A', fontSize: 14 }}>Plan Settled Successfully</Text>
-                                                        </View>
-                                                        {plan.settlementDetails && (
-                                                            <>
-                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
-                                                                    Amount: <Text style={{ fontWeight: 'bold' }}>₹{plan.settlementDetails.amount}</Text>
-                                                                </Text>
-                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
-                                                                    Ref: {plan.settlementDetails.transactionId}
-                                                                </Text>
-                                                                <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
-                                                                    Date: {new Date(plan.settlementDetails.settledDate).toLocaleDateString()}
-                                                                </Text>
-                                                                {plan.settlementDetails.note && (
-                                                                    <Text style={{ fontSize: 12, color: '#2F855A', fontStyle: 'italic' }}>
-                                                                        Note: {plan.settlementDetails.note}
-                                                                    </Text>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </View>
-                                                )}
-                                                {isPayable && plan.status === 'active' && (
-                                                    <>
-                                                        <TouchableOpacity
-                                                            style={[
-                                                                styles.payButton,
-                                                                diffDays <= 3 ? styles.payButtonUrgent : styles.payButtonNormal
-                                                            ]}
-                                                            onPress={() => handlePayInstallment(plan)}
-                                                            disabled={payingId === plan._id}
-                                                        >
-                                                            {payingId === plan._id ? (
-                                                                <ActivityIndicator color="#fff" size="small" />
-                                                            ) : (
-                                                                <Text style={[
-                                                                    styles.payButtonText,
-                                                                    diffDays <= 3 ? styles.payButtonTextUrgent : styles.payButtonTextNormal
-                                                                ]}>
-                                                                    Pay Online: ₹{plan.monthlyAmount} + (2% fee)
-                                                                </Text>
-                                                            )}
-                                                        </TouchableOpacity>
-
-                                                        <TouchableOpacity
-                                                            style={[
-                                                                styles.outlineButton,
-                                                                diffDays <= 3 ? styles.outlineButtonUrgent : styles.outlineButtonNormal
-                                                            ]}
-                                                            onPress={() => openOfflineModal(plan)}
-                                                        >
-                                                            <Text style={[
-                                                                styles.outlineButtonText,
-                                                                diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
-                                                            ]}>
-                                                                paid Offline (No Fee)?
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    </>
-                                                )}
-                                            </View>
-
-                                            {!isPayable && plan.status === 'active' && (
-                                                <View style={[styles.footerRow, { marginTop: 10 }]}>
-                                                    <Icon name="info-circle" size={12} color={COLORS.secondary} />
-                                                    <Text style={[styles.footerText, { color: COLORS.secondary, fontSize: 10 }]}>
-                                                        Online payments include a 2% platform fee
-                                                    </Text>
-                                                </View>
-                                            )}
-
-                                            <View style={[styles.footerRow, { marginTop: 10, backgroundColor: '#f8f9fa' }]}>
-                                                <Icon name="piggy-bank" size={12} color={COLORS.primary} />
-                                                <Text style={styles.footerText}>
-                                                    Target Goal: ₹{plan.totalAmount.toLocaleString()}
-                                                </Text>
-                                            </View>
-
+                                    ) : (
+                                        plan.returnType === 'Cash' ? (
                                             <TouchableOpacity
-                                                style={styles.historyToggleButton}
-                                                onPress={() => setExpandedHistoryId(expandedHistoryId === plan._id ? null : plan._id)}
+                                                style={[styles.payButton1, { backgroundColor: COLORS.success }]}
+                                                onPress={() => openWithdrawalModal(plan)}
                                             >
-                                                <Text style={styles.historyToggleText}>
-                                                    {expandedHistoryId === plan._id ? 'Hide Payment History' : 'View Payment History'}
-                                                </Text>
-                                                <Icon name={expandedHistoryId === plan._id ? "chevron-up" : "chevron-down"} size={10} color={COLORS.primary} />
+                                                <Text style={styles.payButtonText}>Request Withdrawal / Settlement</Text>
                                             </TouchableOpacity>
+                                        ) : null
+                                    )}
+                                </View>
+                            )}
 
-                                            {expandedHistoryId === plan._id && (
-                                                <View style={styles.historyContainer}>
-                                                    <Text style={styles.historyTitle}>Payment History</Text>
-                                                    {plan.history && plan.history.length > 0 ? (
-                                                        plan.history.map((payment, index) => (
-                                                            <View key={payment._id || index} style={styles.historyItem}>
-                                                                <View style={styles.historyLeft}>
-                                                                    <Icon name="check-circle" size={10} color={payment.status === 'Pending Approval' ? 'orange' : "#2E7D32"} style={{ marginTop: 2 }} />
-                                                                    <View style={{ marginLeft: 8 }}>
-                                                                        <Text style={styles.historyDate}>
-                                                                            {new Date(payment.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                        </Text>
-                                                                        <Text style={[styles.historyStatus, { color: payment.status === 'Pending Approval' ? 'orange' : '#666' }]}>
-                                                                            {payment.status || 'Paid'} {payment.commissionAmount > 0 ? '(Online)' : '(Offline)'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
-                                                                <View style={{ alignItems: 'flex-end' }}>
-                                                                    <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
-                                                                    {payment.commissionAmount > 0 && (
-                                                                        <Text style={{ fontSize: 8, color: COLORS.secondary }}>+ ₹{payment.commissionAmount} fee</Text>
-                                                                    )}
-                                                                </View>
-                                                            </View>
-                                                        ))
-                                                    ) : (
-                                                        <Text style={styles.noHistoryText}>No payments recorded yet.</Text>
-                                                    )}
-                                                </View>
+                            {plan.status === 'settled' && (
+                                <View style={{ backgroundColor: '#F0FFF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#C6F6D5' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                        <Icon name="check-circle" size={16} color="#38A169" />
+                                        <Text style={{ marginLeft: 6, fontWeight: 'bold', color: '#2F855A', fontSize: 14 }}>Plan Settled Successfully</Text>
+                                    </View>
+                                    {plan.settlementDetails && (
+                                        <>
+                                            <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                Amount: <Text style={{ fontWeight: 'bold' }}>₹{plan.settlementDetails.amount}</Text>
+                                            </Text>
+                                            <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                Ref: {plan.settlementDetails.transactionId}
+                                            </Text>
+                                            <Text style={{ fontSize: 12, color: '#2F855A', marginBottom: 2 }}>
+                                                Date: {new Date(plan.settlementDetails.settledDate).toLocaleDateString()}
+                                            </Text>
+                                            {plan.settlementDetails.note && (
+                                                <Text style={{ fontSize: 12, color: '#2F855A', fontStyle: 'italic' }}>
+                                                    Note: {plan.settlementDetails.note}
+                                                </Text>
                                             )}
                                         </>
                                     )}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+                                </View>
+                            )}
+                            {isPayable && plan.status === 'active' && (
+                                <>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.payButton,
+                                            diffDays <= 3 ? styles.payButtonUrgent : styles.payButtonNormal
+                                        ]}
+                                        onPress={() => handlePayInstallment(plan)}
+                                        disabled={payingId === plan._id}
+                                    >
+                                        {payingId === plan._id ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (
+                                            <Text style={[
+                                                styles.payButtonText,
+                                                diffDays <= 3 ? styles.payButtonTextUrgent : styles.payButtonTextNormal
+                                            ]}>
+                                                Pay Online: ₹{plan.monthlyAmount} + (2% fee)
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.outlineButton,
+                                            diffDays <= 3 ? styles.outlineButtonUrgent : styles.outlineButtonNormal
+                                        ]}
+                                        onPress={() => openOfflineModal(plan)}
+                                    >
+                                        <Text style={[
+                                            styles.outlineButtonText,
+                                            diffDays <= 3 ? styles.outlineButtonTextUrgent : styles.outlineButtonTextNormal
+                                        ]}>
+                                            Paid Offline (No Fee)?
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
+
+                        {!isPayable && plan.status === 'active' && (
+                            <View style={[styles.footerRow, { marginTop: 10 }]}>
+                                <Icon name="info-circle" size={12} color={COLORS.secondary} />
+                                <Text style={[styles.footerText, { color: COLORS.secondary, fontSize: 10 }]}>
+                                    Online payments include a 2% platform fee
+                                </Text>
+                            </View>
+                        )}
+
+                        <View style={[styles.footerRow, { marginTop: 10, backgroundColor: '#f8f9fa' }]}>
+                            <Icon name="piggy-bank" size={12} color={COLORS.primary} />
+                            <Text style={styles.footerText}>
+                                Target Goal: ₹{plan.totalAmount.toLocaleString()}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.historyToggleButton}
+                            onPress={() => setExpandedHistoryId(expandedHistoryId === plan._id ? null : plan._id)}
+                        >
+                            <Text style={styles.historyToggleText}>
+                                {expandedHistoryId === plan._id ? 'Hide Payment History' : 'View Payment History'}
+                            </Text>
+                            <Icon name={expandedHistoryId === plan._id ? "chevron-up" : "chevron-down"} size={10} color={COLORS.primary} />
+                        </TouchableOpacity>
+
+                        {expandedHistoryId === plan._id && (
+                            <View style={styles.historyContainer}>
+                                <Text style={styles.historyTitle}>Payment History</Text>
+                                {plan.history && plan.history.length > 0 ? (
+                                    plan.history.map((payment, index) => (
+                                        <View key={payment._id || index} style={styles.historyItem}>
+                                            <View style={styles.historyLeft}>
+                                                <Icon name="check-circle" size={10} color={payment.status === 'Pending Approval' ? 'orange' : "#2E7D32"} style={{ marginTop: 2 }} />
+                                                <View style={{ marginLeft: 8 }}>
+                                                    <Text style={styles.historyDate}>
+                                                        {new Date(payment.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </Text>
+                                                    <Text style={[styles.historyStatus, { color: payment.status === 'Pending Approval' ? 'orange' : '#666' }]}>
+                                                        {payment.status || 'Paid'} {payment.commissionAmount > 0 ? '(Online)' : '(Offline)'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={styles.historyAmount}>+ ₹{payment.amount}</Text>
+                                                {payment.commissionAmount > 0 && (
+                                                    <Text style={{ fontSize: 8, color: COLORS.secondary }}>+ ₹{payment.commissionAmount} fee</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                    ))
+                                ) : (
+                                    <Text style={styles.noHistoryText}>No payments recorded yet.</Text>
+                                )}
+                            </View>
+                        )}
+                    </>
                 )}
-                <CustomAlert {...alertConfig} onClose={hideAlert} />
+            </TouchableOpacity>
+        );
+    };
 
-                {/* Offline Payment Modal */}
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={offlineModalVisible}
-                    onRequestClose={() => setOfflineModalVisible(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Report Offline Payment</Text>
-                                <TouchableOpacity onPress={() => setOfflineModalVisible(false)}>
-                                    <Icon name="times" size={20} color="#999" />
-                                </TouchableOpacity>
-                            </View>
+    const renderHeader = () => (
+        <View style={styles.header}>
+            <Text style={styles.sectionTitle}>My Subscriptions</Text>
+            <Text style={styles.sectionSubtitle}>Track your gold savings progress</Text>
+        </View>
+    );
 
-                            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-                                <Text style={styles.modalSubtitle}>
-                                    For Plan: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForOffline?.planName}</Text>
-                                </Text>
-                                <Text style={styles.modalInfo}>
-                                    Ensure you have paid <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForOffline?.monthlyAmount}</Text> to the merchant directly.
-                                </Text>
+    const renderFooter = () => {
+        if (!loadingMore) return <View style={{ height: 50 }} />;
+        return (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+        );
+    };
 
-                                <Text style={styles.inputLabel}>Payment Date</Text>
-                                <TouchableOpacity
-                                    style={styles.datePickerButton}
-                                    onPress={() => setShowDatePicker(true)}
-                                >
-                                    <Icon name="calendar-alt" size={16} color={COLORS.primary} />
-                                    <Text style={styles.datePickerText}>
-                                        {offlineForm.date.toLocaleDateString('en-GB', {
-                                            day: '2-digit',
-                                            month: 'short',
-                                            year: 'numeric'
-                                        })}
-                                    </Text>
-                                </TouchableOpacity>
+    const renderEmpty = () => {
+        if (loading) return <SkeletonLoader />;
+        return (
+            <View style={styles.emptyContainer}>
+                <Icon name="box-open" size={40} color={COLORS.secondary} />
+                <Text style={styles.emptyText}>You haven't subscribed to any plans yet.</Text>
+            </View>
+        );
+    };
 
-                                {showDatePicker && (
-                                    <DateTimePicker
-                                        value={offlineForm.date}
-                                        mode="date"
-                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                        onChange={(event, selectedDate) => {
-                                            setShowDatePicker(Platform.OS === 'ios');
-                                            if (selectedDate) {
-                                                setOfflineForm({ ...offlineForm, date: selectedDate });
-                                            }
-                                        }}
-                                        maximumDate={new Date()}
-                                    />
-                                )}
+    return (
+        <View style={styles.wrapper}>
+            <FlatList
+                data={displayedPlans}
+                renderItem={renderPlanItem}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={styles.content}
+                ListHeaderComponent={renderHeader}
+                ListFooterComponent={renderFooter}
+                ListEmptyComponent={renderEmpty}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                showsVerticalScrollIndicator={false}
+            />
 
-                                <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="E.g., Paid via UPI to store owner..."
-                                    value={offlineForm.notes}
-                                    onChangeText={(t) => setOfflineForm({ ...offlineForm, notes: t })}
-                                    multiline
-                                />
-
-                                <Text style={styles.inputLabel}>Proof of Payment (Screenshot/Receipt)</Text>
-                                <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-                                    <Icon name="camera" size={20} color={COLORS.primary} />
-                                    <Text style={styles.uploadButtonText}>
-                                        {offlineForm.proofImage ? 'Change Image' : 'Upload Proof Image'}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                {offlineForm.proofImage && (
-                                    <View style={styles.imagePreviewContainer}>
-                                        <Image source={{ uri: offlineForm.proofImage.uri }} style={styles.imagePreview} />
-                                        <Text style={styles.imageName}>{offlineForm.proofImage.fileName}</Text>
-                                    </View>
-                                )}
-
-                                <TouchableOpacity
-                                    style={[styles.submitButton, submittingOffline && { opacity: 0.7 }]}
-                                    onPress={submitOfflinePayment}
-                                    disabled={submittingOffline}
-                                >
-                                    {submittingOffline ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.submitButtonText}>Submit Request</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Withdrawal Request Modal */}
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={withdrawalModalVisible}
-                    onRequestClose={() => setWithdrawalModalVisible(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Request Withdrawal</Text>
-                                <TouchableOpacity onPress={() => setWithdrawalModalVisible(false)}>
-                                    <Icon name="times" size={20} color="#999" />
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-                                <Text style={styles.modalSubtitle}>
-                                    Plan Completed: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForWithdrawal?.planName}</Text>
-                                </Text>
-                                <Text style={styles.modalInfo}>
-                                    Please provide your bank details for the settlement of <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForWithdrawal?.totalSaved}</Text>.
-                                </Text>
-
-                                <Text style={styles.inputLabel}>Bank Account Number</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Enter Account Number"
-                                    value={withdrawalForm.accountNumber}
-                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, accountNumber: t })}
-                                    keyboardType="numeric"
-                                />
-
-                                <Text style={styles.inputLabel}>IFSC Code</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Enter IFSC Code"
-                                    value={withdrawalForm.ifsc}
-                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, ifsc: t })}
-                                    autoCapitalize="characters"
-                                />
-
-                                <Text style={styles.inputLabel}>Bank Name (Optional)</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Enter Bank Name"
-                                    value={withdrawalForm.bankName}
-                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, bankName: t })}
-                                />
-
-                                <Text style={styles.inputLabel}>Message to Merchant (Optional)</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Any specific instructions..."
-                                    value={withdrawalForm.message}
-                                    onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, message: t })}
-                                    multiline
-                                />
-
-                                <TouchableOpacity
-                                    style={[styles.submitButton, submittingWithdrawal && { opacity: 0.7 }]}
-                                    onPress={submitWithdrawalRequest}
-                                    disabled={submittingWithdrawal}
-                                >
-                                    {submittingWithdrawal ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.submitButtonText}>Submit Request</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </View>
-                    </View>
-                </Modal>
-            </ScrollView>
             <LinearGradient
                 colors={['rgba(248, 250, 252, 0)', '#F8FAFC']}
                 style={styles.bottomFade}
                 pointerEvents="none"
             />
+
+            {/* Modals & Alerts */}
+            <CustomAlert {...alertConfig} onClose={hideAlert} />
+
+            {/* Offline Payment Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={offlineModalVisible}
+                onRequestClose={() => setOfflineModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Report Offline Payment</Text>
+                            <TouchableOpacity onPress={() => setOfflineModalVisible(false)}>
+                                <Icon name="times" size={20} color="#999" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                            <Text style={styles.modalSubtitle}>
+                                For Plan: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForOffline?.planName}</Text>
+                            </Text>
+                            <Text style={styles.modalInfo}>
+                                Ensure you have paid <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForOffline?.monthlyAmount}</Text> to the merchant directly.
+                            </Text>
+
+                            <Text style={styles.inputLabel}>Payment Date</Text>
+                            <TouchableOpacity
+                                style={styles.datePickerButton}
+                                onPress={() => setShowDatePicker(true)}
+                            >
+                                <Icon name="calendar-alt" size={16} color={COLORS.primary} />
+                                <Text style={styles.datePickerText}>
+                                    {offlineForm.date.toLocaleDateString('en-GB', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric'
+                                    })}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {showDatePicker && (
+                                <DateTimePicker
+                                    value={offlineForm.date}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setOfflineForm({ ...offlineForm, date: selectedDate });
+                                        }
+                                    }}
+                                    maximumDate={new Date()}
+                                />
+                            )}
+
+                            <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="E.g., Paid via UPI to store owner..."
+                                value={offlineForm.notes}
+                                onChangeText={(t) => setOfflineForm({ ...offlineForm, notes: t })}
+                                multiline
+                            />
+
+                            <Text style={styles.inputLabel}>Proof of Payment (Screenshot/Receipt)</Text>
+                            <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+                                <Icon name="camera" size={20} color={COLORS.primary} />
+                                <Text style={styles.uploadButtonText}>
+                                    {offlineForm.proofImage ? 'Change Image' : 'Upload Proof Image'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {offlineForm.proofImage && (
+                                <View style={styles.imagePreviewContainer}>
+                                    <Image source={{ uri: offlineForm.proofImage.uri }} style={styles.imagePreview} />
+                                    <Text style={styles.imageName}>{offlineForm.proofImage.fileName}</Text>
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                style={[styles.submitButton, submittingOffline && { opacity: 0.7 }]}
+                                onPress={submitOfflinePayment}
+                                disabled={submittingOffline}
+                            >
+                                {submittingOffline ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Submit Request</Text>
+                                )}
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Withdrawal Request Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={withdrawalModalVisible}
+                onRequestClose={() => setWithdrawalModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Request Withdrawal</Text>
+                            <TouchableOpacity onPress={() => setWithdrawalModalVisible(false)}>
+                                <Icon name="times" size={20} color="#999" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                            <Text style={styles.modalSubtitle}>
+                                Plan Completed: <Text style={{ fontWeight: 'bold' }}>{selectedPlanForWithdrawal?.planName}</Text>
+                            </Text>
+                            <Text style={styles.modalInfo}>
+                                Please provide your bank details for the settlement of <Text style={{ fontWeight: 'bold' }}>₹{selectedPlanForWithdrawal?.totalSaved}</Text>.
+                            </Text>
+
+                            <Text style={styles.inputLabel}>Bank Account Number</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Enter Account Number"
+                                value={withdrawalForm.accountNumber}
+                                onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, accountNumber: t })}
+                                keyboardType="numeric"
+                            />
+
+                            <Text style={styles.inputLabel}>IFSC Code</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Enter IFSC Code"
+                                value={withdrawalForm.ifsc}
+                                onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, ifsc: t })}
+                                autoCapitalize="characters"
+                            />
+
+                            <Text style={styles.inputLabel}>Bank Name (Optional)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Enter Bank Name"
+                                value={withdrawalForm.bankName}
+                                onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, bankName: t })}
+                            />
+
+                            <Text style={styles.inputLabel}>Message to Merchant (Optional)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Any specific instructions..."
+                                value={withdrawalForm.message}
+                                onChangeText={(t) => setWithdrawalForm({ ...withdrawalForm, message: t })}
+                                multiline
+                            />
+
+                            <TouchableOpacity
+                                style={[styles.submitButton, submittingWithdrawal && { opacity: 0.7 }]}
+                                onPress={submitWithdrawalRequest}
+                                disabled={submittingWithdrawal}
+                            >
+                                {submittingWithdrawal ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Submit Request</Text>
+                                )}
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 };
@@ -757,6 +799,7 @@ const styles = StyleSheet.create({
     sectionSubtitle: {
         fontSize: 13,
         color: COLORS.secondary,
+        marginBottom: 16,
     },
     emptyContainer: {
         alignItems: 'center',
@@ -1207,6 +1250,14 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         letterSpacing: 0.5,
+    },
+    bottomFade: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 80,
+        zIndex: 10
     }
 });
 

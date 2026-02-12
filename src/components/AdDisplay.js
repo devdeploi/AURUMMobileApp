@@ -74,13 +74,29 @@ const AdDisplay = ({ ads, visible: initialVisible = true, paused = false }) => {
             return;
         }
 
-        // Find first ad that is due
-        const dueAd = ads.find(ad => {
+        // Find all ads that are due
+        const dueAds = ads.filter(ad => {
             const lastShown = lastShownMap[ad._id] || 0;
-            // Use ad-specific frequency or fallback to 15 mins
-            const frequency = (ad.displayFrequency || 15) * 60 * 1000;
+            // Enforce default 15 mins frequency
+            const frequency = 15 * 60 * 1000;
             return (now - lastShown) > frequency;
         });
+
+        // Sort to prioritize Merchant Ads and Fair Rotation
+        // 1. Merchant Ads first (!isBrandAd)
+        // 2. Least recently shown first
+        dueAds.sort((a, b) => {
+            const aIsBrand = !!a.isBrandAd;
+            const bIsBrand = !!b.isBrandAd;
+            if (aIsBrand !== bIsBrand) {
+                return aIsBrand ? 1 : -1; // Merchant ads (false) come before Brand ads (true)
+            }
+            const lastShownA = lastShownMap[a._id] || 0;
+            const lastShownB = lastShownMap[b._id] || 0;
+            return lastShownA - lastShownB;
+        });
+
+        const dueAd = dueAds.length > 0 ? dueAds[0] : null;
 
         if (dueAd) {
             setActiveAd(dueAd);
